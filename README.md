@@ -53,7 +53,7 @@ postal sessions          # list saved sessions
 
 Configuration lives in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`, and `AGENTS.md` is picked up automatically.
 
-Full [CLI reference](docs/cli.md) · [configuration reference](docs/configuration.md)
+Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration.md)
 
 ## Documentation
 
