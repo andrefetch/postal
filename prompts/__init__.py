@@ -1,18 +1,4 @@
-"""Prompt text used by the agent, one module per section.
-
-The system prompt is assembled in `prompts.system`; each section it stitches
-together lives in its own module so the text is easy to find and edit:
-
-- `identity`         : who the agent is
-- `agents_md`        : AGENTS.md specification
-- `security`         : security guidelines
-- `environment`      : date, OS, cwd, shell
-- `tool_guidelines`  : available tools and best practices
-- `instructions`     : project / user instructions and remembered context
-- `operational`      : tone, workflows, tool usage, coding guidelines
-
-Standalone prompts live alongside them: `compaction` and `loop_breaker`.
-"""
+"""Prompt text used by the agent, one module per section."""
 
 from prompts.agents_md import get_agents_md_section
 from prompts.compaction import get_compaction_prompt
