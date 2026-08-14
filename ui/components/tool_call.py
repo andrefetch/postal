@@ -176,7 +176,7 @@ def _patch(outcome: ToolOutcome) -> Blocks:
     return summary, details
 
 
-def _shell(outcome: ToolOutcome) -> Blocks:
+def _bash(outcome: ToolOutcome) -> Blocks:
     summary = [
         _joined(
             [
@@ -309,7 +309,7 @@ RENDERERS: dict[str, Callable[[ToolOutcome], Blocks]] = {
     "write": _written,
     "edit": _written,
     "apply_patch": _patch,
-    "shell": _shell,
+    "bash": _bash,
     "list_dir": _list_dir,
     "grep": _grep,
     "glob": _glob,

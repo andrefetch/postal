@@ -9,7 +9,7 @@ ARG_ORDER = {
     "write": ["path", "create_directories", "content"],
     "edit": ["path", "replace_all", "old_string", "new_string"],
     "apply_patch": ["dry_run", "patch"],
-    "shell": ['command', 'timeout', 'cwd'],
+    "bash": ['command', 'timeout', 'cwd'],
     "list_dir": ['path', 'include_hidden'],
     "grep": ['path', 'case_insensitive', 'pattern'],
     "glob": ['path', 'pattern'],

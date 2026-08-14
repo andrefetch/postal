@@ -3,7 +3,7 @@ from enum import Enum
 import os
 from pathlib import Path
 from typing import Any, Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from config.credentials import load_credentials
 
@@ -56,7 +56,7 @@ class SessionConfig(BaseModel):
     max_sessions: int = Field(default=50, ge=1)
 
 
-class ShellEnvironmentConfig(BaseModel):
+class BashEnvironmentConfig(BaseModel):
     ignore_default_excludes: bool = False # for filtering keys, secrets
     exclude_patterns: list[str] = Field(
         default_factory=lambda: ["*KEY*", "*TOKEN*", "*SECRET*"]
@@ -134,7 +134,7 @@ _APPROVAL_LABELS: dict[ApprovalPolicy, tuple[str, str]] = {
     ApprovalPolicy.ON_REQUEST: ("ask", "confirm every mutating tool"),
     ApprovalPolicy.ON_FAIL: ("on fail", "run freely, ask only after a failure"),
     ApprovalPolicy.AUTO: ("auto", "run everything except dangerous commands"),
-    ApprovalPolicy.AUTO_EDIT: ("auto-edit", "edit freely, confirm shell commands"),
+    ApprovalPolicy.AUTO_EDIT: ("auto-edit", "edit freely, confirm bash commands"),
     ApprovalPolicy.NEVER: ("read-only", "reject anything that is not known safe"),
     ApprovalPolicy.YOLO: ("yolo", "approve everything, including dangerous commands"),
 }
@@ -165,10 +165,15 @@ class HookConfig(BaseModel):
 
 class Config(BaseModel):
 
+    # `shell_environment` is the pre-rename spelling; configs on disk still
+    # carry it, so it stays accepted as an alias for `bash_environment`.
+    model_config = ConfigDict(populate_by_name=True)
+
     model: ModelConfig = Field(default_factory=ModelConfig)
     cwd: Path = Field(default_factory=Path.cwd)
-    shell_environment: ShellEnvironmentConfig = Field(
-        default_factory=ShellEnvironmentConfig
+    bash_environment: BashEnvironmentConfig = Field(
+        default_factory=BashEnvironmentConfig,
+        validation_alias=AliasChoices("bash_environment", "shell_environment"),
     )
 
     reasoning: ReasoningConfig = Field(default_factory=ReasoningConfig)

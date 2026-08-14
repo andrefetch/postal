@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 import httpx
 
 from tools.base import Tool, ToolInvocation, ToolKind, ToolResult
+from tools.network.headers import DEFAULT_HEADERS
 from pydantic import BaseModel, Field
 
 class WebFetchParams(BaseModel):
@@ -38,6 +39,7 @@ class WebFetchTool(Tool):
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(params.timeout),
                 follow_redirects=True,
+                headers=DEFAULT_HEADERS,
             ) as client:
                 response = await client.get(params.url)
                 response.raise_for_status()
@@ -46,13 +48,13 @@ class WebFetchTool(Tool):
             return ToolResult.error_result(
                 f'HTTP {e.response.status_code}: {e.response.reason_phrase}'
             )
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as e:
             return ToolResult.error_result(
-                f'Request failed: {e}'
+                f'Request timed out after {params.timeout}s: {e}'
             )
         except Exception as e:
             return ToolResult.error_result(
-                f'Search failed: {e}'
+                f'Fetch failed: {e}'
             )
 
         

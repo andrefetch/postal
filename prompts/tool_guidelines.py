@@ -47,7 +47,7 @@ You have access to the following tools to accomplish your tasks:
    - Use `list_dir` to explore directory structure
 
 3. **Shell Commands**:
-   - Use `shell` for running commands, tests, builds
+   - Use `bash` for running commands, tests, builds
    - Prefer read-only commands when just gathering information
    - Be cautious with commands that modify state
 

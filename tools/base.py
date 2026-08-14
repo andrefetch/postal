@@ -12,7 +12,7 @@ from config.config import Config
 class ToolKind(str, Enum):
     READ = "read"
     WRITE = "write"
-    SHELL = "shell"
+    BASH = "bash"
     NETWORK = "network"
     MEMORY = "memory"
     MCP = "mcp"
@@ -160,7 +160,7 @@ class Tool(abc.ABC):
         return []
 
     def is_mutating(self, params: dict[str, Any]) -> bool:
-        return self.kind in {ToolKind.WRITE, ToolKind.SHELL, ToolKind.NETWORK, ToolKind.MEMORY}
+        return self.kind in {ToolKind.WRITE, ToolKind.BASH, ToolKind.NETWORK, ToolKind.MEMORY}
 
     async def get_confirmation(self, invocation: ToolInvocation) -> ToolConfirmation | None:
         if not self.is_mutating(invocation.params):

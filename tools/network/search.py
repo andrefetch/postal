@@ -25,7 +25,7 @@ class WebSearchTool(Tool):
 
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
         params = WebSearchParams(**invocation.params)
-    
+
         try:
             results = DDGS().text(
                 params.query,
@@ -57,16 +57,12 @@ class WebSearchTool(Tool):
             output_lines.append(f"     URL: {result['href']}")
             if result.get('body'):
                 output_lines.append(f"  Snippet: {result['body']}")
-            
+
             output_lines.append("")
-        
+
         return ToolResult.success_result(
             '\n'.join(output_lines),
             metadata = {
                 'results': len(results),
             }
         )
-
-
-
-       

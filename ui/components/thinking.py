@@ -16,7 +16,7 @@ TOOL_THINKING_WORDS = {
     "write": "Writing…",
     "edit": "Editing…",
     "apply_patch": "Patching…",
-    "shell": "Running…",
+    "bash": "Running…",
     "list_dir": "Looking around…",
     "grep": "Searching…",
     "glob": "Searching…",
@@ -29,7 +29,7 @@ TOOL_THINKING_WORDS = {
 KIND_THINKING_WORDS = {
     "read": "Reading…",
     "write": "Editing…",
-    "shell": "Running…",
+    "bash": "Running…",
     "network": "Fetching…",
     "memory": "Remembering…",
     "mcp": "Working…",

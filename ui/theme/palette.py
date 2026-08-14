@@ -23,7 +23,7 @@ PALETTE = {**NEUTRALS, **HUES}
 TOOL_COLOURS = {
     "read": PALETTE["blue"],
     "write": PALETTE["green"],
-    "shell": PALETTE["amber"],
+    "bash": PALETTE["amber"],
     "network": PALETTE["teal"],
     "memory": PALETTE["violet"],
     "mcp": PALETTE["lilac"],

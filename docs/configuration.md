@@ -44,7 +44,7 @@ enabled = true       # save the conversation so it can be resumed
 max_checkpoints = 20 # snapshots kept per session
 max_sessions = 50    # sessions kept before the oldest are dropped
 
-[shell_environment]
+[bash_environment]
 ignore_default_excludes = false
 exclude_patterns = ["*KEY*", "*TOKEN*", "*SECRET*"] # Filters environment variables
 set_vars = { MY_VAR = "value" }                     # Injects environment variables
@@ -113,9 +113,10 @@ enabled = true
 
 See [Sessions](sessions.md) for what a checkpoint actually holds.
 
-### `[shell_environment]`
+### `[bash_environment]`
 
-Controls the environment the `shell` tool runs commands in.
+Controls the environment the `bash` tool runs commands in. The old table name
+`[shell_environment]` is still accepted for existing config files.
 
 | Key | Default | What it does |
 | --- | --- | --- |

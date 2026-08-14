@@ -237,7 +237,7 @@ TEST_WRITER = SubagentDefinition(
     You are a code test writer, your speciality is in writing tests for the user to put their code against edge cases, and special areas where their code
     can fail.
 
-    Especially, use tools like plan to plan out multiple tests if neccessary, tools you can call are read, list_directories, grep, glob, write, edit, apply_patch, shell, and plan.
+    Especially, use tools like plan to plan out multiple tests if neccessary, tools you can call are read, list_directories, grep, glob, write, edit, apply_patch, bash, and plan.
 
     """,
 
@@ -250,7 +250,7 @@ TEST_WRITER = SubagentDefinition(
         'plan',
         'edit',
         'apply_patch',
-        'shell'
+        'bash'
     ],
 
     max_turns=10

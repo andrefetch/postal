@@ -31,11 +31,11 @@ DANGEROUS_COMMANDS = {
     "sleep",
 }
 
-class ShellParams(BaseModel):
+class BashParams(BaseModel):
 
     command: str = Field(
         ...,
-        description='The shell command used to execute system commands',
+        description='The bash command used to execute system commands',
     )
 
     timeout: int = Field(
@@ -50,16 +50,16 @@ class ShellParams(BaseModel):
         description='The working directory for the command to be ran'
     )
 
-class ShellTool(Tool):
+class BashTool(Tool):
 
-    name = 'shell'
-    kind = ToolKind.SHELL
-    description = "Execute a shell command. Use this for running system wide commands, scripts and usage of CLI Tools."
+    name = 'bash'
+    kind = ToolKind.BASH
+    description = "Execute a bash command. Use this for running system wide commands, scripts and usage of CLI Tools."
 
-    schema = ShellParams
+    schema = BashParams
 
     async def get_confirmation(self, invocation: ToolInvocation) -> ToolConfirmation:
-        params = ShellParams(**invocation.params)
+        params = BashParams(**invocation.params)
 
         command = params.command.lower().strip()
         for dangerous in DANGEROUS_COMMANDS:
@@ -81,7 +81,7 @@ class ShellTool(Tool):
         )
 
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
-        params = ShellParams(**invocation.params)
+        params = BashParams(**invocation.params)
 
         command = params.command.lower().strip()
         for dangerous in DANGEROUS_COMMANDS:
@@ -107,12 +107,12 @@ class ShellTool(Tool):
         
         env = self._build_environment()
         if sys.platform == 'win32':
-            shell_cmd = ['cmd.exe', '/c', params.command]
+            bash_cmd = ['cmd.exe', '/c', params.command]
         else:
-            shell_cmd = ['/bin/bash', '-c', params.command]
-        
+            bash_cmd = ['/bin/bash', '-c', params.command]
+
         process = await asyncio.create_subprocess_exec(
-            *shell_cmd,
+            *bash_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
@@ -200,16 +200,16 @@ class ShellTool(Tool):
     def _build_environment(self) -> dict[str, str]:
         env = os.environ.copy()
 
-        shell_environment = self.config.shell_environment
+        bash_environment = self.config.bash_environment
 
-        if not shell_environment.ignore_default_excludes:
-            for pattern in shell_environment.exclude_patterns:
+        if not bash_environment.ignore_default_excludes:
+            for pattern in bash_environment.exclude_patterns:
                 keys_to_remove = [k for k in env.keys() if fnmatch.fnmatch(k.upper(), pattern.upper())]
 
                 for k in keys_to_remove:
                     del env[k]
 
-        if shell_environment.set_vars:
-            env.update(shell_environment.set_vars)
+        if bash_environment.set_vars:
+            env.update(bash_environment.set_vars)
 
         return env

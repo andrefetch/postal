@@ -18,9 +18,9 @@ Everything the model can call. Which of these are available in a given run depen
 
 Every write shows a diff in the confirmation prompt before it happens.
 
-## Shell
+## Bash
 
-The `shell` tool runs commands in the working directory. The environment it runs in is filtered first: variables matching `exclude_patterns` (by default anything that looks like a key, token or secret) are stripped, and `set_vars` are injected. Dangerous commands are refused outright by the safety layer, whatever the approval policy says.
+The `bash` tool runs commands in the working directory. The environment it runs in is filtered first: variables matching `exclude_patterns` (by default anything that looks like a key, token or secret) are stripped, and `set_vars` are injected. Dangerous commands are refused outright by the safety layer, whatever the approval policy says.
 
 ## Planning
 

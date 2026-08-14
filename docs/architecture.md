@@ -65,13 +65,13 @@ Data crossing a layer boundary is a dataclass, not a dict:
 
 Any type with a fixed value set is a `str`-backed `Enum` (`ToolKind`, `ApprovalDecision`, `AgentEventType`, `StreamEventType`, `PatchAction`, `MCPServerStatus`), which makes it exhaustive at the type level while remaining readable in serialized JSON.
 
-Configuration is a tree of Pydantic models (`ModelConfig`, `ReasoningConfig`, `SessionConfig`, `ShellEnvironmentConfig`, `MCPServerConfig`, `HookConfig`) that carry field-level validation and class-level behaviour: `ReasoningConfig.to_request_payload()` encapsulates the mutually exclusive effort-or-budget rule that OpenRouter enforces, so no caller has to reimplement it.
+Configuration is a tree of Pydantic models (`ModelConfig`, `ReasoningConfig`, `SessionConfig`, `BashEnvironmentConfig`, `MCPServerConfig`, `HookConfig`) that carry field-level validation and class-level behaviour: `ReasoningConfig.to_request_payload()` encapsulates the mutually exclusive effort-or-budget rule that OpenRouter enforces, so no caller has to reimplement it.
 
 Errors form a single hierarchy rooted at `AgentError`, which carries a message, structured `details`, and the underlying `cause`, and serializes through `to_dict()`. `ConfigError` extends it with the offending key and file.
 
 ## The UI splits state from rendering
 
-`ui/components/` contains one module per visual element (spinner, gutter, markdown, tool calls, confirmations, plans, thinking, usage, transcript), and the split within them is deliberate. Anything that carries state across frames is a class: `Spinner` owns its frame counter, `MarkdownStream` owns the partial-line buffer that permits markdown to render while it is still arriving, and `Gutter` wraps a renderable so it can be drawn indented beneath a bar. Everything else is a pure function from a value object to a Rich renderable. That is why `tool_call.py` can dispatch on tool kind (`_read`, `_shell`, `_patch`, …) over a single `ToolOutcome` dataclass rather than subclassing a renderer per tool.
+`ui/components/` contains one module per visual element (spinner, gutter, markdown, tool calls, confirmations, plans, thinking, usage, transcript), and the split within them is deliberate. Anything that carries state across frames is a class: `Spinner` owns its frame counter, `MarkdownStream` owns the partial-line buffer that permits markdown to render while it is still arriving, and `Gutter` wraps a renderable so it can be drawn indented beneath a bar. Everything else is a pure function from a value object to a Rich renderable. That is why `tool_call.py` can dispatch on tool kind (`_read`, `_bash`, `_patch`, …) over a single `ToolOutcome` dataclass rather than subclassing a renderer per tool.
 
 `Gutter` implements Rich's rendering protocol directly: `__rich_console__` yields the bar and the indented body segment by segment, so it nests inside any other renderable exactly as a built-in Rich object does.
 
