@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 import re
+import shlex
 from typing import Any, Awaitable, Callable
 
 from config.config import ApprovalPolicy
@@ -56,14 +57,14 @@ DANGEROUS_PATTERNS = [
 SAFE_PATTERNS = [
     # Information commands
     r"^(ls|dir|pwd|cd|echo|cat|head|tail|less|more|wc)(\s|$)",
-    r"^(find|locate|which|whereis|file|stat)(\s|$)",
+    r"^(locate|which|whereis|file|stat)(\s|$)",
     # Development tools (read-only)
     r"^git\s+(status|log|diff|show|branch|remote|tag)(\s|$)",
     r"^(npm|yarn|pnpm)\s+(list|ls|outdated)(\s|$)",
     r"^pip\s+(list|show|freeze)(\s|$)",
     r"^cargo\s+(tree|search)(\s|$)",
-    # Text processing (usually safe)
-    r"^(grep|awk|sed|cut|sort|uniq|tr|diff|comm)(\s|$)",
+    # Text processing (read-only: sed, awk and find are left out because all three can write)
+    r"^(grep|cut|sort|uniq|tr|diff|comm)(\s|$)",
     # System info
     r"^(date|cal|uptime|whoami|id|groups|hostname|uname)(\s|$)",
     r"^(env|printenv|set)$",
@@ -83,17 +84,70 @@ def is_dangerous_command(command: str) -> bool:
         
     return False
 
-def is_safe_command(command: str) -> bool:
+# Operators that chain one command into another. A compound command is only as
+# safe as its least safe part, so each side is checked on its own.
+COMMAND_SEPARATORS = {';', '&&', '||', '|'}
+
+# Constructs that let a segment write, spawn or expand into something the safe
+# pattern never saw: redirection, command substitution, subshells, background.
+UNSAFE_CONSTRUCTS = ('>', '<', '$(', '`', '(', ')', '&', '{', '}')
+
+def split_command_segments(command: str) -> list[str]:
+    """Split a compound command on shell operators, leaving quoted text alone.
+
+    Raises ValueError when the command cannot be tokenised, e.g. an unbalanced quote.
+    """
+
+    lexer = shlex.shlex(command, posix=False, punctuation_chars=True)
+    lexer.whitespace_split = True
+
+    segments: list[str] = []
+    current: list[str] = []
+
+    for token in lexer:
+        if token in COMMAND_SEPARATORS:
+            segments.append(' '.join(current))
+            current = []
+            continue
+        current.append(token)
+
+    segments.append(' '.join(current))
+
+    return [segment for segment in segments if segment]
+
+def _is_safe_segment(segment: str) -> bool:
+
+    if any(construct in segment for construct in UNSAFE_CONSTRUCTS):
+        return False
 
     for pattern in SAFE_PATTERNS:
         if re.search(
             pattern,
-            command,
+            segment,
             re.IGNORECASE
         ):
             return True
-        
+
     return False
+
+def is_safe_command(command: str) -> bool:
+    """A command is safe only when every segment of it is.
+
+    Matching the whole string against the safe patterns anchored the check on the
+    first word, so anything prefixed with a read-only command was auto-approved:
+    `ls && rm -rf ./src` passed on the `ls`.
+    """
+
+    try:
+        segments = split_command_segments(command)
+    except ValueError:
+        # Cannot be parsed, so it cannot be vouched for.
+        return False
+
+    if not segments:
+        return False
+
+    return all(_is_safe_segment(segment) for segment in segments)
 
 class ApprovalManager:
 
