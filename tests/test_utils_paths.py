@@ -51,14 +51,16 @@ class ResolvePathTests(unittest.TestCase):
 
 
 class DisplayPathTests(unittest.TestCase):
+    # These paths are never read from disk, and pathlib anchors a leading slash
+    # to the current drive on Windows, so one literal works on both platforms.
     def test_relative_to_cwd_when_underneath_it(self):
-        cwd = Path("/home/user/project") if Path("/").exists() else Path("C:/project")
+        cwd = Path("/home/user/project")
         shown = display_path_relative_to_cwd(str(cwd / "src" / "main.py"), cwd)
         self.assertEqual(Path(shown), Path("src/main.py"))
 
     def test_falls_back_to_the_full_path_when_outside_cwd(self):
-        cwd = Path("/home/user/project") if Path("/").exists() else Path("C:/project")
-        other = Path("/etc/hosts") if Path("/").exists() else Path("C:/windows/hosts")
+        cwd = Path("/home/user/project")
+        other = Path("/etc/hosts")
         self.assertEqual(display_path_relative_to_cwd(str(other), cwd), str(other))
 
     def test_passes_the_path_through_when_there_is_no_cwd(self):
