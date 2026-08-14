@@ -3,6 +3,7 @@ import codecs
 import os
 import fnmatch
 from pathlib import Path
+import re
 import signal
 import sys
 
@@ -10,26 +11,58 @@ from pydantic import BaseModel, Field
 
 from tools.base import Tool, ToolConfirmation, ToolInvocation, ToolKind, ToolResult
 
-DANGEROUS_COMMANDS = {
+# Whole programs. Their names also occur inside ordinary text, as in
+# `git commit -m "fix reboot"`, so they only count where a command can start.
+DANGEROUS_PROGRAMS = frozenset({
+    "shutdown",
+    "reboot",
+    "halt",
+    "poweroff",
+    "mkfs",
+    "fdisk",
+    "parted",
+})
+
+# Specific enough that seeing them anywhere is reason enough to stop, quoted
+# or not: `bash -c "rm -rf /"` is not a mention, it is the thing itself.
+DANGEROUS_FRAGMENTS = frozenset({
     "rm -rf /",
     "rm -rf ~",
     "rm -rf /*",
     "dd if=/dev/zero",
     "dd if=/dev/random",
-    "mkfs",
-    "fdisk",
-    "parted",
-    ":(){ :|:& };:",  
+    ":(){ :|:& };:",
     "chmod 777 /",
     "chmod -R 777",
-    "shutdown",
-    "reboot",
-    "halt",
-    "poweroff",
     "init 0",
     "init 6",
-    "sleep",
-}
+})
+
+DANGEROUS_COMMANDS = DANGEROUS_PROGRAMS | DANGEROUS_FRAGMENTS
+
+# Start of the string, or right after an operator that ends the previous
+# command, with an optional sudo in front so `sudo reboot` still counts.
+_COMMAND_POSITION = r'(?:^|[;&|]|\n)\s*(?:sudo\s+)?'
+
+def find_blocked_entry(command: str) -> str | None:
+    """Return the dangerous entry this command matches, or None."""
+
+    lowered = command.lower().strip()
+
+    # Compared lowercased on both sides: `chmod -R 777` carries an uppercase R,
+    # so matching it against an already-lowercased command never fired.
+    for fragment in sorted(DANGEROUS_FRAGMENTS):
+        if fragment.lower() in lowered:
+            return fragment
+
+    for program in sorted(DANGEROUS_PROGRAMS):
+        if re.search(
+            _COMMAND_POSITION + re.escape(program) + r'(?![\w-])',
+            lowered
+        ):
+            return program
+
+    return None
 
 class BashParams(BaseModel):
 
@@ -61,16 +94,14 @@ class BashTool(Tool):
     async def get_confirmation(self, invocation: ToolInvocation) -> ToolConfirmation:
         params = BashParams(**invocation.params)
 
-        command = params.command.lower().strip()
-        for dangerous in DANGEROUS_COMMANDS:
-            if dangerous in command:
-                return ToolConfirmation(
-                    tool_name=self.name,
-                    params=invocation.params,
-                    description=f"Execute (DANGEROUS): {params.command}",
-                    command=params.command,
-                    is_dangerous=True,
-                )
+        if find_blocked_entry(params.command):
+            return ToolConfirmation(
+                tool_name=self.name,
+                params=invocation.params,
+                description=f"Execute (DANGEROUS): {params.command}",
+                command=params.command,
+                is_dangerous=True,
+            )
 
         return ToolConfirmation(
             tool_name=self.name,
@@ -83,15 +114,13 @@ class BashTool(Tool):
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
         params = BashParams(**invocation.params)
 
-        command = params.command.lower().strip()
-        for dangerous in DANGEROUS_COMMANDS:
-            if dangerous in command:
-                return ToolResult.error_result(
-                    f'Command blocked: {params.command}',
-                    metadata = {
-                        'blocked': True
-                    }
-                )
+        if find_blocked_entry(params.command):
+            return ToolResult.error_result(
+                f'Command blocked: {params.command}',
+                metadata = {
+                    'blocked': True
+                }
+            )
         
         if params.cwd:
             cwd = Path(params.cwd)
