@@ -1,5 +1,3 @@
-"""Prompt text used by the agent, one module per section."""
-
 from prompts.agents_md import get_agents_md_section
 from prompts.compaction import get_compaction_prompt
 from prompts.environment import get_environment_section
