@@ -53,7 +53,7 @@ Approvals still route through you: a sub-agent's tool calls surface as confirmat
 
 ## MCP
 
-Postal connects to external [Model Context Protocol](https://modelcontextprotocol.io/) servers over stdio or HTTP/SSE and registers their tools alongside the built-in ones. Configure servers under `[mcp_servers.<name>]` and check them with `/mcp`.
+Postal connects to external [Model Context Protocol](https://modelcontextprotocol.io/) servers over stdio, HTTP/SSE, or Streamable HTTP and registers their tools alongside the built-in ones. Configure servers under `[mcp_servers.<name>]` and check them with `/mcp`.
 
 MCP tools are always treated as mutating, because a third-party server's side effects cannot be inferred from its schema.
 

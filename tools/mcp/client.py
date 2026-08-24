@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 from fastmcp import Client
-from fastmcp.client.transports import SSETransport, StdioTransport
+from fastmcp.client.transports import SSETransport, StdioTransport, StreamableHttpTransport
 from dataclasses import dataclass, field
 
 from config.config import MCPServerConfig
@@ -48,7 +48,7 @@ class MCPClient:
     def tools(self) -> list[MCPToolInfo]:
         return list(self._tools.values())
     
-    def _create_transport(self) -> StdioTransport | SSETransport:
+    def _create_transport(self) -> StdioTransport | SSETransport | StreamableHttpTransport:
 
         if self.config.command:
             env = os.environ.copy()
@@ -60,8 +60,10 @@ class MCPClient:
                 cwd = str(self.config.cwd or self.cwd),
                 log_file=Path(os.devnull)
             )
-        else:
-            return SSETransport(url=self.config.url)
+        if self.config.transport == "streamable_http":
+            return StreamableHttpTransport(url=self.config.url)
+
+        return SSETransport(url=self.config.url)
 
     async def connect(self) -> None:
 

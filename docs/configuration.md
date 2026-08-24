@@ -56,7 +56,8 @@ startup_timeout = 10.0
 command = "npx"             # For stdio servers
 args = ["-y", "my-server"]
 env = { API_KEY = "123" }
-# url = "http://..."        # Alternatively, use a URL for HTTP/SSE servers
+# url = "http://..."        # Alternatively, use a URL (SSE by default)
+# transport = "streamable_http" # Opt in for Streamable HTTP servers
 cwd = "/path/to/dir"
 
 # Run commands or scripts at specific points in the agent lifecycle
@@ -126,7 +127,7 @@ Controls the environment the `bash` tool runs commands in. The old table name
 
 ### `[mcp_servers.<name>]`
 
-One table per server. Each needs **either** `command` (stdio) **or** `url` (HTTP/SSE) — setting both, or neither, is a config error.
+One table per server. Each needs **either** `command` (stdio) **or** `url` (HTTP) — setting both, or neither, is a config error. URL servers use SSE unless `transport = "streamable_http"` is set explicitly.
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -135,10 +136,25 @@ One table per server. Each needs **either** `command` (stdio) **or** `url` (HTTP
 | `args` | `[]` | Arguments for that executable. |
 | `env` | `{}` | Environment for the server process. |
 | `cwd` | unset | Working directory for the server process. |
-| `url` | unset | Endpoint for an HTTP or SSE server. |
+| `url` | unset | Endpoint for an HTTP server. |
+| `transport` | `sse` | URL transport: `sse` or `streamable_http`. |
 | `startup_timeout` | `10.0` | Seconds to wait for the server to come up. |
 
 Tools from every connected server are registered under the agent's tool set; `/mcp` shows their status.
+
+For example, Parallel Search exposes both search and page-fetching tools over
+Streamable HTTP:
+
+```toml
+[mcp_servers.parallel]
+url = "https://search.parallel.ai/mcp"
+transport = "streamable_http"
+```
+
+When enabled, its `web_search` tool sends the search objective and queries to
+Parallel, and its `web_fetch` tool sends the requested page URLs to Parallel.
+Only configure an external MCP server if that data transfer is appropriate for
+your project.
 
 ### `[[hooks]]`
 

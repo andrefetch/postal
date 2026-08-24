@@ -83,6 +83,7 @@ class MCPServerConfig(BaseModel):
 
     # Http/ sse transports
     url: str | None = None
+    transport: Literal["sse", "streamable_http"] | None = None
 
     @model_validator(
         mode='after'
@@ -99,6 +100,11 @@ class MCPServerConfig(BaseModel):
         if has_command and has_url:
             raise ValueError(
                 "MCP servers can't have both command and URL"
+            )
+
+        if self.transport is not None and not has_url:
+            raise ValueError(
+                "MCP server transport can only be set with a URL"
             )
 
         return self
