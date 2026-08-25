@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from typing import Any
 
-from prompt_toolkit.filters import Condition, has_completions
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.input import create_input
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys

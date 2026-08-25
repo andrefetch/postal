@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import Mock
 
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import has_completions
 from prompt_toolkit.formatted_text import FormattedText
 
 from ui.repl.completer import SlashCompleter
