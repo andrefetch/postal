@@ -1,4 +1,3 @@
-from pathlib import Path
 from pydantic import BaseModel, Field
 from tools.base import FileDiff, Tool, ToolConfirmation, ToolInvocation, ToolKind, ToolResult
 from utils.paths import ensure_parent_dir, resolve_path

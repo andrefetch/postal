@@ -11,8 +11,6 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.filters import to_filter
 from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.layout.containers import Float, FloatContainer
-from prompt_toolkit.layout.menus import CompletionsMenu
 from rich.text import Text
 
 from agent.agent import Agent
@@ -21,7 +19,6 @@ from ui.components import echo_user_message
 from ui.console import get_console
 from ui.repl.banner import render_banner
 from ui.repl.commands import SlashCommands
-from ui.repl.completer import SlashCompleter
 from ui.repl.keys import build_key_bindings, turn_keys
 from ui.repl.prompt import (
     PROMPT_STYLE,

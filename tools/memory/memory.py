@@ -1,8 +1,6 @@
 import json
-import uuid
 from typing import Any
 
-from config.config import Config
 from config.loader import get_data_dir
 from tools.base import Tool, ToolInvocation, ToolKind, ToolResult
 from pydantic import BaseModel, Field
