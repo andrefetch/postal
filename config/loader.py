@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 CONFIG_FILE = 'config.toml'
 AGENT_MD_FILE = 'AGENTS.md'
+SKILLS_MD_FILE = 'SKILLS.md'
 
 
 def get_config_dir() -> Path:
