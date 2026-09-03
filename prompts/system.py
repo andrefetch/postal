@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from prompts.agents_md import get_agents_md_section
 from prompts.environment import get_environment_section
 from prompts.identity import get_identity_section
+from prompts.skills import get_skills_section
 from prompts.instructions import (
     get_developer_instructions_section,
     get_memory_section,
@@ -36,6 +37,9 @@ def get_system_prompt(
 
     # Security guidelines
     parts.append(get_security_section())
+
+    # SKILLS.md spec
+    parts.append(get_skills_section());
 
     # env section, for win data, mac and linux for shell command usage.
     parts.append(get_environment_section(config))

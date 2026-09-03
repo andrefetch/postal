@@ -17,7 +17,7 @@ debug = false
 # command='python3 ./scripts/test_tool.py'
 
 [model]
-name = "cohere/north-mini-code:free"
+name = "openai/gpt-5.6-luna"
 temperature = 1.0
 context_window = 256000
 

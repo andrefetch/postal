@@ -12,6 +12,7 @@ from prompts.operational import get_operational_section
 from prompts.security import get_security_section
 from prompts.system import get_system_prompt
 from prompts.tool_guidelines import get_tool_guidelines_section
+from prompts.skills import get_skills_section
 
 __all__ = [
     "create_loop_breaker_prompt",
@@ -26,4 +27,5 @@ __all__ = [
     "get_system_prompt",
     "get_tool_guidelines_section",
     "get_user_instructions_section",
+    "get_skills_section",
 ]
