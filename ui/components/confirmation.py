@@ -44,7 +44,6 @@ def confirmation_body(
                     display_path_relative_to_cwd(
                         str(confirmation.diff.path), Path(cwd) if cwd else None
                     ),
-                    max_lines=MAX_CONFIRM_DIFF_LINES,
                 )
             )
 
