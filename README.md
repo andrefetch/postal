@@ -170,8 +170,7 @@ Two rules apply on top of the policy, and no policy except `yolo` overrides them
 ## Roadmap
 
 Currently being worked on:
-
-- **Skill Integration** - allows users to import skills and use with their favorite model.
+- **Parallel Subagents** - allows sub-agents to call instances of other sub-agents to delegate more work to specialized agents.
 - **Git Integration** - allows users to use git commands with postal.
 - **More assets** - Logo, banner, etc
 
