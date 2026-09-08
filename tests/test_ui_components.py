@@ -3,6 +3,7 @@ from pathlib import Path
 
 from rich.console import Console
 from tools.base import FileDiff, ToolConfirmation
+from ui.components.confirmation import confirmation_body
 from ui.components.permission_prompt import permission_prompt
 from ui.components.tool_progress import tool_progress_panel
 from ui.theme import AGENT_THEME
@@ -55,6 +56,26 @@ class UIComponentTests(unittest.TestCase):
         self.assertIn("dangerous", output)
         self.assertIn("Affects:", output)
         self.assertIn("build", output)
+
+    def test_confirmation_body_counts_full_diff_when_preview_is_truncated(self) -> None:
+        rendered = confirmation_body(
+            ToolConfirmation(
+                tool_name="write",
+                params={},
+                description="Write file",
+                diff=FileDiff(
+                    Path("example.py"),
+                    "",
+                    "\n".join(f"line_{index}" for index in range(25)) + "\n",
+                    is_new_file=True,
+                ),
+            )
+        )
+        console = Console(record=True, width=100, theme=AGENT_THEME)
+        console.print(rendered)
+        output = console.export_text()
+        self.assertIn("+25 -0", output)
+        self.assertIn("… 5 more lines", output)
 
 
 if __name__ == "__main__":

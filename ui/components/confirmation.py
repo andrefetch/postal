@@ -28,15 +28,11 @@ def confirmation_body(
 
     if confirmation.diff is not None:
         # The file header is redundant here: the path is already in the title.
-        lines = [
+        diff = "\n".join(
             line
             for line in confirmation.diff.create_diff().splitlines()
             if not line.startswith(("--- ", "+++ "))
-        ]
-        if len(lines) > MAX_CONFIRM_DIFF_LINES:
-            hidden = len(lines) - MAX_CONFIRM_DIFF_LINES
-            lines = lines[:MAX_CONFIRM_DIFF_LINES] + [f"… {hidden} more lines"]
-        diff = "\n".join(lines).strip()
+        ).strip()
         if diff:
             blocks.append(
                 diff_viewer(
@@ -44,6 +40,7 @@ def confirmation_body(
                     display_path_relative_to_cwd(
                         str(confirmation.diff.path), Path(cwd) if cwd else None
                     ),
+                    max_lines=MAX_CONFIRM_DIFF_LINES,
                 )
             )
 
