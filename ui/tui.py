@@ -29,10 +29,9 @@ from ui.components import (
     confirmation_request,
     random_thinking_text,
     shimmer,
-    shimmer_tool_label,
-    shimmers,
     tool_blocks,
     tool_header,
+    tool_progress_panel,
     tool_status,
     usage_line,
 )
@@ -308,23 +307,19 @@ class TUI:
         head = headline_of(display_args)
         self._tool_progress = ""
 
-        shimmering = shimmers(tool_kind)
-
         def render() -> Any:
-            line = Text.assemble((f"{self._spinner.char()} ", "tool"))
-            if shimmering:
-                line.append_text(shimmer_tool_label(name, self._spinner.frame))
-            else:
-                line.append(name, style="highlight")
-            if head:
-                line.append("  ")
-                line.append(head[1], style="subtitle")
             elapsed = int(time.monotonic() - started_at)
-            line.append(f" {elapsed}s", style="muted")
-            if self._tool_progress:
-                line.append(" › ", style="dim")
-                line.append(self._tool_progress, style="muted")
-            return self._live_group(line)
+            return self._live_group(
+                tool_progress_panel(
+                    name,
+                    elapsed,
+                    self._tool_progress,
+                    tool_kind=tool_kind,
+                    headline=head[1] if head else None,
+                    spinner=self._spinner.char(),
+                    frame=self._spinner.frame,
+                )
+            )
 
         self._spinner.start(render)
 

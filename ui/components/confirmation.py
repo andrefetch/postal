@@ -3,15 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from rich.box import ROUNDED
 from rich.console import Group
-from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.text import Text
 
 from tools.base import ToolConfirmation
 from ui.components.args_table import render_args_table
-from ui.theme import POSTAL_SYNTAX
+from ui.components.diff_viewer import diff_viewer
+from ui.components.permission_prompt import permission_prompt
+from utils.paths import display_path_relative_to_cwd
 
 MAX_CONFIRM_DIFF_LINES = 20
 
@@ -19,7 +18,9 @@ APPROVE_KEYS = {"y", "a"}
 REJECT_KEYS = {"n", "d", "q"}
 
 
-def confirmation_body(confirmation: ToolConfirmation) -> Group:
+def confirmation_body(
+    confirmation: ToolConfirmation, cwd: Path | str | None = None
+) -> Group:
     blocks: list[Any] = []
 
     if confirmation.command:
@@ -27,23 +28,19 @@ def confirmation_body(confirmation: ToolConfirmation) -> Group:
 
     if confirmation.diff is not None:
         # The file header is redundant here: the path is already in the title.
-        lines = [
+        diff = "\n".join(
             line
             for line in confirmation.diff.create_diff().splitlines()
             if not line.startswith(("--- ", "+++ "))
-        ]
-        if len(lines) > MAX_CONFIRM_DIFF_LINES:
-            hidden = len(lines) - MAX_CONFIRM_DIFF_LINES
-            lines = lines[:MAX_CONFIRM_DIFF_LINES] + [f"… {hidden} more lines"]
-        diff = "\n".join(lines).strip()
+        ).strip()
         if diff:
             blocks.append(
-                Syntax(
+                diff_viewer(
                     diff,
-                    "diff",
-                    theme=POSTAL_SYNTAX,
-                    word_wrap=True,
-                    background_color="default",
+                    display_path_relative_to_cwd(
+                        str(confirmation.diff.path), Path(cwd) if cwd else None
+                    ),
+                    max_lines=MAX_CONFIRM_DIFF_LINES,
                 )
             )
 
@@ -58,30 +55,7 @@ def confirmation_request(
 ) -> list[Any]:
     """Title, description and body, ready to print in order."""
 
-    border = "error" if confirmation.is_dangerous else "warning"
-
-    title = Text.assemble(
-        ("⏵ ", border),
-        (confirmation.tool_name, "highlight"),
-        ("  needs your approval", "subtitle"),
-    )
-    if confirmation.is_dangerous:
-        title.append("  (dangerous)", style="error")
-
-    description = confirmation.description
-    if cwd:
-        description = description.replace(f"{cwd}/", "")
-
-    return [
-        title,
-        Text(description, style="muted"),
-        Panel(
-            confirmation_body(confirmation),
-            box=ROUNDED,
-            border_style=border,
-            padding=(0, 1),
-        ),
-    ]
+    return permission_prompt(confirmation, cwd)
 
 
 def confirmation_choices(badge: str) -> Text:

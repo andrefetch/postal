@@ -3,12 +3,10 @@ from __future__ import annotations
 from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.styles import Style
 
-from ui.components import PROMPT_MARK
+from ui.components import PROMPT_MARK, status_bar
 from ui.theme import hex_colour
 
 PROMPT_WIDTH = len("│ ") + len(PROMPT_MARK) + len(" ")
-
-STATUS_MIN_WIDTH = 64
 
 PROMPT_STYLE = Style.from_dict(
     {
@@ -63,28 +61,15 @@ def soft_wrap(text: str, width: int) -> str:
 
 
 def status_readout(
-    model_name: str, context_ratio: float | None, width: int
+    model_name: str,
+    context_ratio: float | None,
+    width: int,
+    approval_label: str = "",
+    cwd: str | None = None,
 ) -> tuple[str, str] | None:
-    """The right-hand side of the frame's foot: model, and how full the context is."""
+    """The right-hand side of the frame's foot."""
 
-    if width < STATUS_MIN_WIDTH:
-        return None
-
-    parts = [model_name.rsplit("/", 1)[-1]]
-
-    style = "status"
-    if context_ratio is not None:
-        if context_ratio >= 0.9:
-            style = "status.danger"
-        elif context_ratio >= 0.7:
-            style = "status.warn"
-        parts.append(f"{context_ratio * 100:.0f}% ctx")
-
-    parts = [part for part in parts if part]
-    if not parts:
-        return None
-
-    return style, f" {' · '.join(parts)} "
+    return status_bar(model_name, approval_label, context_ratio, cwd, width)
 
 
 def prompt_fragments(

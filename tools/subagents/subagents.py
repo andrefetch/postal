@@ -109,16 +109,38 @@ class SubAgentTool(Tool):
                 return await parent_callback(confirmation)
 
         try:
-            async with Agent(subagent_config, confirmation_callback=subagent_callback) as agent:
+            subagent_name = self.definition.name
+
+            def report_subagent_progress(chunk: str) -> None:
+                lines = chunk.splitlines() or [chunk]
+                for line in lines:
+                    if line.strip():
+                        invocation.report_progress(f"{subagent_name} › {line}")
+
+            async with Agent(
+                subagent_config,
+                confirmation_callback=subagent_callback,
+            ) as agent:
+                agent.progress_callback = report_subagent_progress
+                invocation.report_progress(f"{subagent_name} › starting")
                 timeout = asyncio.get_event_loop().time() + self.definition.timeout_seconds
                 async for event in agent.run(prompt):
                     if asyncio.get_event_loop().time() > timeout:
                         terminate_response = 'timeout'
                         final_response = 'Sub-agent timed out'
+                        invocation.report_progress(f"{subagent_name} › timed out")
                         break
 
                     if event.type == AgentEventType.TOOL_CALL_START:
-                        tool_calls.append(event.data.get('name'))
+                        tool_name = event.data.get('name', 'unknown')
+                        tool_calls.append(tool_name)
+                        invocation.report_progress(f"{subagent_name} › running {tool_name}")
+                    elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
+                        tool_name = event.data.get('name', 'unknown')
+                        status = "completed" if event.data.get("success") else "failed"
+                        invocation.report_progress(
+                            f"{subagent_name} › {status} {tool_name}"
+                        )
                     elif event.type == AgentEventType.TEXT_COMPLETE:
                         final_response = event.data.get('content')
                     elif event.type == AgentEventType.AGENT_END:
@@ -128,11 +150,13 @@ class SubAgentTool(Tool):
                         terminate_response = 'error'
                         error = event.data.get('error', 'Unknown')
                         final_response = f"Sub-agent error: {error}"
+                        invocation.report_progress(f"{subagent_name} › failed")
                         break
         except Exception as e:
             terminate_response = 'error'
             error = str(e)
             final_response = f"Sub-agent failed: {e}"
+            invocation.report_progress(f"{self.definition.name} › failed")
         
         result = f"""Sub-agent '{self.definition.name}' completed.
 
