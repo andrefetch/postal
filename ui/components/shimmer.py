@@ -6,7 +6,7 @@ from ui.theme import rgb_parts
 SHIMMER_BASE = rgb_parts("silver")
 SHIMMER_PEAK = (255, 255, 255)
 SHIMMER_WIDTH = 3.0
-SHIMMER_SPEED = 0.28
+SHIMMER_SPEED = 0.4
 SHIMMER_GAP = 10
 
 SHIMMERING_KINDS = frozenset({"subagent"})

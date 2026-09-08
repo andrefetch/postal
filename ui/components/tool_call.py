@@ -8,6 +8,7 @@ from rich.table import Table
 from rich.text import Text
 
 from ui.components.args_table import render_args_table
+from ui.components.diff_viewer import diff_viewer
 from ui.components.memory import render_memory
 from ui.components.plan import render_plan
 from ui.format import (
@@ -127,12 +128,9 @@ def _written(outcome: ToolOutcome) -> Blocks:
                 )
             )
         details.append(
-            Syntax(
+            diff_viewer(
                 truncate_text(diff, outcome.model_name, MAX_DIFF_TOKENS),
-                "diff",
-                theme=POSTAL_SYNTAX,
-                background_color="default",
-                word_wrap=True,
+                outcome.path or outcome.args.get("path"),
             )
         )
 
@@ -164,12 +162,9 @@ def _patch(outcome: ToolOutcome) -> Blocks:
 
     if outcome.diff:
         details.append(
-            Syntax(
+            diff_viewer(
                 truncate_text(outcome.diff, outcome.model_name, MAX_DIFF_TOKENS),
-                "diff",
-                theme=POSTAL_SYNTAX,
-                background_color="default",
-                word_wrap=True,
+                "multi-file patch",
             )
         )
 

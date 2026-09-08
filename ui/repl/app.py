@@ -170,7 +170,11 @@ class Repl:
             self.tui.approval_badge(),
             self.config.approval.risk,
             status_readout(
-                self.config.model_name, self.tui.context_ratio, self.console.width
+                self.config.model_name,
+                self.tui.context_ratio,
+                self.console.width,
+                self.config.approval.label,
+                str(self.config.cwd),
             ),
         )
 

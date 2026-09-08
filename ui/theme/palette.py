@@ -1,6 +1,7 @@
 NEUTRALS = {
     "bright": "rgb(226,228,234)",
     "silver": "rgb(176,180,188)",
+    "black": "rgb(0,0,0)",
     "graphite": "rgb(120,124,132)",
     "slate": "rgb(88,94,104)",
     "accent": "rgb(130,150,180)",
