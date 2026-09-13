@@ -7,8 +7,6 @@
   Plans, edits, runs, and reviews code with any model on OpenRouter.
 </p>
 
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/postalcli?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/postalcli)
-
 <p align="center">
   <a href="https://pepy.tech/projects/postalcli"><img src="https://static.pepy.tech/personalized-badge/postalcli?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" alt="PyPI downloads" /></a>
 </p>
