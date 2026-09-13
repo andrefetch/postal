@@ -2,7 +2,10 @@ import tempfile
 import unittest
 from importlib.metadata import version
 from pathlib import Path
+import sys
 from unittest.mock import patch
+
+from packaging.version import Version
 
 from config.loader import save_model_name
 
@@ -17,6 +20,34 @@ class PostalCliTests(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn(f"postal, version {version('postalcli')}", result.output)
+
+    @patch("main._latest_version", return_value=Version("999.0.0"))
+    @patch("main.subprocess.run")
+    def test_upgrade_installs_newer_version(self, run, latest_version):
+        run.return_value.returncode = 0
+
+        result = CliRunner().invoke(main, ["upgrade"])
+
+        self.assertEqual(result.exit_code, 0)
+        run.assert_called_once_with(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "postalcli"],
+            check=False,
+        )
+
+    @patch("main._latest_version", return_value=Version("0.0.34"))
+    @patch("main.subprocess.run")
+    def test_upgrade_does_not_run_pip_when_current(self, run, latest_version):
+        result = CliRunner().invoke(main, ["upgrade"])
+
+        self.assertEqual(result.exit_code, 0)
+        run.assert_not_called()
+
+    @patch("main._latest_version", return_value=Version("999.0.0"))
+    @patch("main.installed_version", return_value="0.0.34")
+    def test_upgrade_notice_is_returned_for_newer_version(self, installed, latest_version):
+        from main import _upgrade_notice
+
+        self.assertIn("postal upgrade", _upgrade_notice())
 
 
 class ModelConfigPersistenceTests(unittest.TestCase):

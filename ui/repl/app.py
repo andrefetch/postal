@@ -43,9 +43,15 @@ def _history_path() -> Path:
 
 class Repl:
 
-    def __init__(self, config: Config, resume: str | None = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        resume: str | None = None,
+        upgrade_notice: str | None = None,
+    ) -> None:
         self.config = config
         self.resume = resume
+        self.upgrade_notice = upgrade_notice
         self.console = get_console()
         self.tui = TUI(config, self.console)
         self.commands = SlashCommands(config, self.console)
@@ -81,6 +87,8 @@ class Repl:
 
     def _banner(self) -> None:
         render_banner(self.console, self.config)
+        if self.upgrade_notice:
+            self.tui.print_block(Text(self.upgrade_notice, style="warning"))
         self.tui.mark_dirty()
 
     def _farewell(self, agent: Agent) -> None:

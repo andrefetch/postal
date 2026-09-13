@@ -28,6 +28,7 @@ dependencies = [
     "fastmcp>=3.4",
     "httpx>=0.28",
     "openai>=2.44",
+    "packaging>=25.0",
     "platformdirs>=4.10",
     "prompt-toolkit>=3.0",
     "pydantic>=2.13",

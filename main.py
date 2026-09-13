@@ -13,11 +13,36 @@ from config.oauth import OAuthError, login_with_oauth
 from ui import TUI, Repl, get_console, stream_turn
 import asyncio
 import click
+import json
+import subprocess
 import sys
+from importlib.metadata import version as installed_version
+from urllib.error import URLError
+from urllib.request import urlopen
+
+from packaging.version import InvalidVersion, Version
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 console = get_console()
+
+
+def _latest_version() -> Version:
+    with urlopen("https://pypi.org/pypi/postalcli/json", timeout=5) as response:
+        data = json.load(response)
+    return Version(data["info"]["version"])
+
+
+def _upgrade_notice() -> str | None:
+    try:
+        current = Version(installed_version("postalcli"))
+        latest = _latest_version()
+    except (InvalidVersion, KeyError, TypeError, URLError, TimeoutError, OSError, ValueError):
+        return None
+
+    if latest > current:
+        return f"Postal {latest} is available (you have {current}). Use `postal upgrade` to update."
+    return None
 
 async def run_once(config: Config, message: str, resume: str | None = None) -> str | None:
     tui = TUI(config)
@@ -143,7 +168,7 @@ def run(ctx: click.Context, prompt: str | None):
         if result is None:
             sys.exit(1)
     else:
-        asyncio.run(Repl(config, resume=resume).run())
+        asyncio.run(Repl(config, resume=resume, upgrade_notice=_upgrade_notice()).run())
 
 
 @main.command(
@@ -268,6 +293,29 @@ def logout():
         console.print(f"[success]Logged out.[/success] Removed {get_credentials_path()}")
     else:
         console.print("[warning]No saved credentials to remove.[/warning]")
+
+
+@main.command()
+def upgrade():
+    current = Version(installed_version("postalcli"))
+
+    try:
+        latest = _latest_version()
+    except (InvalidVersion, KeyError, TypeError, URLError, TimeoutError, OSError, ValueError) as error:
+        raise click.ClickException(f"Could not check for updates: {error}") from error
+
+    if latest <= current:
+        console.print(f"[success]Postal is already up to date ({current}).[/success]")
+        return
+
+    console.print(f"Updating postal from {current} to {latest}...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "postalcli"],
+        check=False,
+    )
+    if result.returncode:
+        raise click.ClickException("postal upgrade failed")
+    console.print(f"[success]Postal upgraded to {latest}.[/success]")
 
 
 @main.command("/help")

@@ -6,7 +6,15 @@
 pip install postalcli
 ```
 
+To check for and install the latest release:
+
+```bash
+postal upgrade
+```
+
 Postal needs Python 3.11 or newer. A `Dockerfile` and Compose file live in [`docker/`](../docker/) if you would rather run the agent sandboxed.
+
+When a newer release is available, Postal displays a notice when the interactive TUI starts. It never upgrades automatically; run `postal upgrade` yourself to install it.
 
 ## Log in
 
@@ -33,6 +41,7 @@ API_KEY=sk-... postal "run the test suite and fix what fails"
 | `postal run [prompt]` | The explicit form of the two above |
 | `postal login` | Authorize with OpenRouter |
 | `postal logout` | Remove the saved API key |
+| `postal upgrade` | Check PyPI and upgrade Postal if a newer release is available |
 | `postal sessions` | List saved sessions for this directory |
 | `postal sessions --all` | List sessions from every directory |
 | `postal sessions rm <id>` | Delete a saved session |
