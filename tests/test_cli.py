@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -48,6 +48,19 @@ class PostalCliTests(unittest.TestCase):
         from main import _upgrade_notice
 
         self.assertIn("postal upgrade", _upgrade_notice())
+
+    @patch("main.installed_version", side_effect=PackageNotFoundError("postalcli"))
+    def test_upgrade_notice_is_skipped_without_package_metadata(self, installed):
+        from main import _upgrade_notice
+
+        self.assertIsNone(_upgrade_notice())
+
+    @patch("main.installed_version", side_effect=PackageNotFoundError("postalcli"))
+    def test_upgrade_reports_missing_package_metadata(self, installed):
+        result = CliRunner().invoke(main, ["upgrade"])
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("install postalcli before upgrading", result.output)
 
 
 class ModelConfigPersistenceTests(unittest.TestCase):

@@ -16,7 +16,7 @@ import click
 import json
 import subprocess
 import sys
-from importlib.metadata import version as installed_version
+from importlib.metadata import PackageNotFoundError, version as installed_version
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -37,7 +37,16 @@ def _upgrade_notice() -> str | None:
     try:
         current = Version(installed_version("postalcli"))
         latest = _latest_version()
-    except (InvalidVersion, KeyError, TypeError, URLError, TimeoutError, OSError, ValueError):
+    except (
+        PackageNotFoundError,
+        InvalidVersion,
+        KeyError,
+        TypeError,
+        URLError,
+        TimeoutError,
+        OSError,
+        ValueError,
+    ):
         return None
 
     if latest > current:
@@ -297,7 +306,12 @@ def logout():
 
 @main.command()
 def upgrade():
-    current = Version(installed_version("postalcli"))
+    try:
+        current = Version(installed_version("postalcli"))
+    except PackageNotFoundError as error:
+        raise click.ClickException(
+            "Could not determine the installed postal version; install postalcli before upgrading."
+        ) from error
 
     try:
         latest = _latest_version()
