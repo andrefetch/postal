@@ -1,6 +1,6 @@
 import random
 
-REASONING_LABEL = "Thinking"
+REASONING_LABEL = "Thinking…"
 
 THINKING_WORDS = [
     "Thinking…",
@@ -8,7 +8,7 @@ THINKING_WORDS = [
     "Fluctuating…",
     "Writing…",
     "Typing…",
-    "Helping…",
+    "Helping…" 
 ]
 
 TOOL_THINKING_WORDS = {
