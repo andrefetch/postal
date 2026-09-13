@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "postalcli"
-version = "0.0.34"
+version = "0.0.35"
 description = "An open-sourced, terminal-based AI coding agent."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ dependencies = [
     "fastmcp>=3.4",
     "httpx>=0.28",
     "openai>=2.44",
+    "packaging>=25.0",
     "platformdirs>=4.10",
     "prompt-toolkit>=3.0",
     "pydantic>=2.13",
