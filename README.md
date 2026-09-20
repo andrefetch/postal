@@ -41,7 +41,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 
 | Page | What it covers |
 | --- | --- |
-| [CLI reference](docs/cli.md) | Installing, logging in, every command and flag |
+| [CLI reference](docs/cli.md) | Installing, logging in, every command and flags |
 | [Configuration](docs/configuration.md) | `config.toml`, per-project overrides, `AGENTS.md`, every option |
 | [Tools](docs/tools.md) | The built-in tool set, sub-agents, MCP servers |
 | [Approvals](docs/approvals.md) | The six approval policies and the rules that override them |
