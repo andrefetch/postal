@@ -159,5 +159,7 @@ An array of tables, one per hook. Each needs either `command` or `script`.
 | --- | --- |
 | `API_KEY` | Overrides the key saved by `postal login`. |
 | `BASE_URL` | Overrides the saved API base URL. |
+| `YOUCOM_SEARCH` | When set, registers the optional `you_search` tool (You.com web search). See [Tools](tools.md). |
+| `YDC_API_KEY` | Optional You.com API key; switches `you_search` from the keyless free profile to the authenticated endpoint. |
 
 Both take precedence over what is on disk, so nothing needs to be written to a file to run in CI.

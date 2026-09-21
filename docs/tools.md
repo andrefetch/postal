@@ -32,6 +32,24 @@ The `plan` tool keeps a todo list across the agent loop, so a multi-step task ha
 | --- | --- |
 | `search` | Web search, backed by DuckDuckGo. |
 | `fetch` | Fetch a URL and hand its contents to the model. |
+| `you_search` | Optional web search via You.com. Off by default; set the `YOUCOM_SEARCH` environment variable to register it. Works without an API key (keyless free profile); set `YDC_API_KEY` to use the authenticated endpoint with higher limits. |
+
+### `you_search`
+
+You.com serves its search tool over [MCP](https://modelcontextprotocol.io/), so the tool talks to the hosted endpoint directly — no extra dependencies, nothing to install. It is registered only when you opt in:
+
+```bash
+YOUCOM_SEARCH=1 postal
+```
+
+Without an API key it uses the keyless free profile (`https://api.you.com/mcp?profile=free`). To use an API key instead, get one at [you.com/platform/api-keys](https://you.com/platform/api-keys) and set:
+
+```bash
+YOUCOM_SEARCH=1
+YDC_API_KEY=your-key
+```
+
+The output shape matches `search` (numbered titles, URLs and snippets), so the model can use either interchangeably. If the endpoint is unreachable the tool returns an error result and the built-in `search` tool keeps working as before.
 
 ## Memory
 

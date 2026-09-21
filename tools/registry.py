@@ -7,7 +7,9 @@ from pathlib import Path
 from tools.base import ToolResult, ToolInvocation
 from tools.core import get_all_core_tools
 import logging
+import os
 
+from tools.network.you_search import YouSearchTool
 from tools.subagents.subagents import SubAgentTool, get_default_subagent_definitions
 
 
@@ -160,5 +162,10 @@ def create_default_registry(config: Config) -> ToolRegistry:
     
     for subagent_def in get_default_subagent_definitions():
         registry.register(SubAgentTool(config, subagent_def))
+
+    # Optional You.com web search. Off by default: the tool is only
+    # registered when the user opts in, so the default tool set is unchanged.
+    if os.environ.get('YOUCOM_SEARCH'):
+        registry.register(YouSearchTool(config))
 
     return registry
