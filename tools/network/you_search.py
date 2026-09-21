@@ -25,29 +25,69 @@ class YouSearchParams(BaseModel):
         description='Maximum results to return (default: 10)'
     )
 
-def format_youcom_results(query: str, payload: dict) -> str:
+def _iter_youcom_results(data):
+    """Yield result dicts from either MCP response shape.
+
+    The hosted `you-search` tool returns `content[0].text` as a JSON-encoded
+    list of {title, url, snippets} hits; the Search API returns a dict with
+    `results.web` / `results.news` / `results.knowledge` sections. Both are
+    accepted here.
+    """
+
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                yield item
+        return
+
+    if not isinstance(data, dict):
+        return
+
+    results = data.get('results', {})
+    if not isinstance(results, dict):
+        return
+
+    for section in ('web', 'news', 'knowledge'):
+        section_items = results.get(section)
+        if not isinstance(section_items, list):
+            continue
+        for item in section_items:
+            if isinstance(item, dict):
+                yield item
+
+def _result_snippet(result: dict) -> str:
+    snippet = result.get('description', '') or result.get('snippet', '')
+
+    if not snippet:
+        snippets = result.get('snippets')
+        if isinstance(snippets, list) and snippets:
+            snippet = snippets[0]
+
+    if not snippet:
+        contents = result.get('contents')
+        if isinstance(contents, dict):
+            highlights = contents.get('highlights')
+            if isinstance(highlights, list) and highlights:
+                snippet = highlights[0]
+
+    return snippet or ''
+
+def format_youcom_results(query: str, payload) -> str:
     """Turn the `you-search` tool payload into the same text shape as `search`."""
 
     output_lines = [f'Search results for: {query}']
-
-    results = payload.get('results', {})
     numbered = 0
 
-    for section in ('web', 'news', 'knowledge'):
-        for result in results.get(section, []):
-            numbered += 1
-            output_lines.append(f"{numbered}. Title: {result.get('title', '')}")
-            output_lines.append(f"     URL: {result.get('url', '')}")
+    for result in _iter_youcom_results(payload):
+        numbered += 1
+        output_lines.append(f"{numbered}. Title: {result.get('title', '')}")
+        output_lines.append(f"     URL: {result.get('url', '')}")
 
-            snippet = result.get('description', '')
-            if not snippet:
-                highlights = result.get('contents', {}).get('highlights', [])
-                snippet = highlights[0] if highlights else ''
+        snippet = _result_snippet(result)
+        if snippet:
+            output_lines.append(f'  Snippet: {snippet}')
 
-            if snippet:
-                output_lines.append(f'  Snippet: {snippet}')
-
-            output_lines.append('')
+        output_lines.append('')
 
     return '\n'.join(output_lines)
 
@@ -107,10 +147,24 @@ class YouSearchTool(Tool):
                 'Search failed: could not parse the You.com response'
             )
 
-        tool_result = payload.get('result', {})
-        if 'error' in tool_result:
+        if 'error' in payload:
+            error = payload['error']
+            message = error.get('message', error) if isinstance(error, dict) else error
             return ToolResult.error_result(
-                f"Search failed: {tool_result['error'].get('message', tool_result['error'])}"
+                f'Search failed: {message}'
+            )
+
+        tool_result = payload.get('result', {})
+
+        if not isinstance(tool_result, dict):
+            return ToolResult.error_result(
+                'Search failed: unexpected You.com response format'
+            )
+
+        if tool_result.get('isError'):
+            error_text = self._error_text(tool_result)
+            return ToolResult.error_result(
+                f'Search failed: {error_text}'
             )
 
         try:
@@ -122,11 +176,7 @@ class YouSearchTool(Tool):
             )
 
         output = format_youcom_results(params.query, data)
-
-        total = sum(
-            len(data.get('results', {}).get(section, []))
-            for section in ('web', 'news', 'knowledge')
-        )
+        total = sum(1 for _ in _iter_youcom_results(data))
 
         if total == 0:
             return ToolResult.success_result(
@@ -142,6 +192,22 @@ class YouSearchTool(Tool):
                 'results': total,
             }
         )
+
+    @staticmethod
+    def _error_text(tool_result: dict) -> str:
+        """Pull the server's error message out of an isError MCP result."""
+
+        content = tool_result.get('content')
+
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                text = item.get('text')
+                if isinstance(text, str) and text.strip():
+                    return text.strip()
+
+        return 'You.com tool call failed'
 
     @staticmethod
     def _extract_result(body: str) -> dict | None:
