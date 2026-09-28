@@ -19,7 +19,7 @@ I built Postal because I wanted to understand how modern AI coding harnesses act
 
 Postal is my way of opening that learning process up to everyone. It's an open-source Python project you can use as a coding agent, study to see how the pieces fit together, or make your own. Build a tool, add a sub-agent, swap out a component, rethink the interface, or try an idea just to see what happens.
 
-It's designed to be hacked on. Follow the [architecture guide](docs/architecture.md), get your hands into the code, and spice it up with your own ideas. I hope it helps you learn how these systems work—and gives you a place to build something of your own.
+It's designed to be hacked on. Follow the [architecture guide](docs/architecture.md), get your hands into the code, and spice it up with your own ideas. I hope it helps you learn how these systems work and gives you a place to build something of your own.
 
 ## Quickstart ↴
 
