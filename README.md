@@ -13,9 +13,17 @@
 
 Postal connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, delegates to specialized sub-agents, and streams everything through a full-screen TUI. Every mutating action goes through an approval policy you control, so it is as autonomous or as careful as you want it to be.
 
+## Motivation
+
+I built Postal because I wanted to understand how modern AI coding harnesses actually work: the agent loop, tool calls, context management, approvals, and everything that turns a model into something that can work on a codebase. The harnesses I wanted to learn from were either closed source or written in languages other than Python. I wanted something I could read, take apart, and experiment with in a language I already enjoyed.
+
+Postal is my way of opening that learning process up to everyone. It's an open-source Python project you can use as a coding agent, study to see how the pieces fit together, or make your own. Build a tool, add a sub-agent, swap out a component, rethink the interface, or try an idea just to see what happens.
+
+It's designed to be hacked on. Follow the [architecture guide](docs/architecture.md), get your hands into the code, and spice it up with your own ideas. I hope it helps you learn how these systems work—and gives you a place to build something of your own.
+
 ## Quickstart ↴
 
-Two commands and you are talking to an agent in your own repo:
+Install Postal, connect OpenRouter, and start an agent in your own repo:
 
 ```bash
 pip install postalcli
@@ -23,10 +31,28 @@ postal login    # opens your browser to authorize with OpenRouter
 postal          # start the interactive TUI
 ```
 
-More ways to run it:
+## Usage
+
+Run `postal` from the project you want to work on, then describe your task in plain language. Start by exploring the codebase, ask for a plan, or jump into a specific change:
+
+```text
+Explain how this project is structured and where the main entry points are.
+Find the cause of this failing test and fix it.
+Plan a refactor of the authentication module before making any changes.
+Review my changes for bugs and missing edge cases.
+```
+
+Postal reads the relevant files, uses its tools, and streams its progress in the terminal. When an action needs approval, you can review it before it runs. Type `/help` to see the available commands, `/model <name>` to switch models, or `/config` to inspect your configuration.
+
+For a single task, pass your prompt directly:
 
 ```bash
-postal "your prompt"     # single-shot mode, great for scripting
+postal "Explain how this project is structured"
+```
+
+You can also choose a working directory or return to a saved conversation:
+
+```bash
 postal --cwd /path       # run against a different working directory
 postal --continue        # pick up the last session in this directory
 postal --resume 3f2a1c   # resume a specific session by id
