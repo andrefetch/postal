@@ -21,7 +21,7 @@ Postal is my way of opening that learning process up to everyone. It's an open-s
 
 It's designed to be hacked on. Follow the [architecture guide](docs/architecture.md), get your hands into the code, and spice it up with your own ideas. I hope it helps you learn how these systems work and gives you a place to build something of your own.
 
-## Quickstart ↴
+## Quick Start
 
 Install Postal, connect OpenRouter, and start an agent in your own repo:
 
