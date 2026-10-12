@@ -180,7 +180,6 @@ Two rules apply on top of the policy, and no policy except `yolo` overrides them
 Currently being worked on:
 - **Parallel Subagents** - allows sub-agents to call instances of other sub-agents to delegate more work to specialized agents.
 - **Git Integration** - allows users to use git commands with postal.
-- **More assets** - Logo, banner, etc
 
 Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feature discussions are very welcome.
 
