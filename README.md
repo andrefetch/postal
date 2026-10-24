@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  <b>An open-source AI coding agent that lives in your terminal.</b><br />
+  <b>An open-source alternative AI coding agent that lives in your terminal.</b><br />
   Plans, edits, runs, and reviews code with any model on OpenRouter.
 </p>
 
