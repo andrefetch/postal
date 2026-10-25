@@ -13,14 +13,6 @@
 
 Postal connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, delegates to specialized sub-agents, and streams everything through a full-screen TUI. Every mutating action goes through an approval policy you control, so it is as autonomous or as careful as you want it to be.
 
-## Motivation
-
-I built Postal because I wanted to understand how modern AI coding harnesses actually work: the agent loop, tool calls, context management, approvals, and everything that turns a model into something that can work on a codebase. The harnesses I wanted to learn from were either closed source or written in languages other than Python. I wanted something I could read, take apart, and experiment with in a language I already enjoyed.
-
-Postal is my way of opening that learning process up to everyone. It's an open-source Python project you can use as a coding agent, study to see how the pieces fit together, or make your own. Build a tool, add a sub-agent, swap out a component, rethink the interface, or try an idea just to see what happens.
-
-It's designed to be hacked on. Follow the [architecture guide](docs/architecture.md), get your hands into the code, and spice it up with your own ideas. I hope it helps you learn how these systems work and gives you a place to build something of your own.
-
 ## Quick Start
 
 Install Postal, connect OpenRouter, and start an agent in your own repo:
