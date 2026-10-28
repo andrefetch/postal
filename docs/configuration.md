@@ -30,7 +30,7 @@ hooks_enabled = true            # Enable or disable hooks globally
 
 [model]
 name = "anthropic/claude-sonnet-4.5"
-temperature = 1.0
+temperature = 0.4
 context_window = 256000
 
 [reasoning]
@@ -80,7 +80,7 @@ enabled = true
 | `developer_instructions` | from `AGENTS.md` | Project instructions handed to the model. |
 | `user_instructions` | unset | Your personal preferences, sent alongside the above. |
 | `hooks_enabled` | `true` | Master switch for every hook. |
-| `max_turns` | `100` | Tool-calling rounds before one run gives up. |
+| `max_turns` | `30` | Tool-calling rounds before one run gives up. |
 | `max_tool_output_tokens` | `50000` | Ceiling on how much of a tool's output reaches the model. |
 | `debug` | `false` | Debug logging. |
 
@@ -89,7 +89,7 @@ enabled = true
 | Key | Default | What it does |
 | --- | --- | --- |
 | `name` | unset | Any OpenRouter model slug, e.g. `anthropic/claude-sonnet-4.5`. `/model` changes it mid-session and writes it back to the config. |
-| `temperature` | `1.0` | Clamped to 0.0–2.0. |
+| `temperature` | `0.4` | Clamped to 0.0–2.0. |
 | `context_window` | `256000` | What Postal assumes the window is, which is what pruning and compaction budget against. |
 
 ### `[reasoning]`
