@@ -87,7 +87,7 @@ class ContextManager:
         self._latest_usage = TokenUsage()
         self._total_usage = TokenUsage()
     
-    def add_user_message(self, content):
+    def add_user_message(self, content: str):
         item = MessageItem(
             role = 'user', 
             content = content,
@@ -238,7 +238,7 @@ class ContextManager:
 
         self._messages.append(item)
 
-    def set_latest_usage(self, usage: TokenUsage):
+    def set_latest_usage(self, usage: TokenUsage) -> None:
         self._latest_usage = usage
 
     def add_usage(self, usage: TokenUsage):

@@ -12,8 +12,8 @@ class ModelConfig(BaseModel):
     name: str = ''
     
     temperature: float = Field(
-        default=1, 
-        ge=0.0, 
+        default=0.4,
+        ge=0.0,
         le=2.0
     ) # clarity of the model
 
@@ -190,7 +190,7 @@ class Config(BaseModel):
     hooks_enabled: bool = True
     hooks: list[HookConfig] = Field(default_factory=list)
 
-    max_turns: int = 100
+    max_turns: int = 30
     mcp_servers: dict[str, MCPServerConfig] = Field(
         default_factory=dict
     )
