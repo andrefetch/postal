@@ -198,6 +198,9 @@ class Config(BaseModel):
 
     developer_instructions: str | None = None
     user_instructions: str | None = None
+    # Optional path to a file whose body fills `user_instructions` when that
+    # is not set inline, e.g. a `~/.you.md` profile. Resolved by the loader.
+    user_instructions_file: str | None = None
     debug: bool = False
 
     @property

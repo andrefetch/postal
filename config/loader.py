@@ -7,6 +7,7 @@ except ModuleNotFoundError:
     import tomli as tomllib
 import json
 import logging
+import os
 from typing import Any
 
 from utils.errors import ConfigError
@@ -130,6 +131,56 @@ def _get_agent_md(cwd: Path) -> str | None:
     return "\n\n".join(sections)
 
 
+def _strip_frontmatter(content: str) -> str:
+    """Drop a leading YAML frontmatter block (`---` ... `---`) if there is one.
+
+    Profile formats such as you.md open with a small frontmatter header
+    (schema version, privacy level). That is metadata for tooling, not
+    something the model needs to read, so it stays out of the prompt.
+    """
+    lines = content.splitlines(keepends=True)
+    if not lines or lines[0].strip() != '---':
+        return content
+    for index in range(1, len(lines)):
+        if lines[index].strip() == '---':
+            return ''.join(lines[index + 1:])
+    # An opening fence with no closing one is just content.
+    return content
+
+
+def _get_user_instructions_file(path_value: str, cwd: Path) -> str | None:
+    """Read `user_instructions_file` and return its body, or None if unusable.
+
+    `~` and environment variables are expanded; a relative path is resolved
+    against the working directory. A missing or unreadable file is logged
+    and skipped so a stale path never stops Postal from starting.
+    """
+    raw = path_value.strip()
+    if not raw:
+        return None
+
+    path = Path(os.path.expandvars(os.path.expanduser(raw)))
+    if not path.is_absolute():
+        path = cwd.resolve() / path
+
+    if not path.is_file():
+        logger.warning(f"user_instructions_file not found, skipping: {path}")
+        return None
+
+    try:
+        content = path.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        logger.warning(f"Failed to read user_instructions_file {path}", exc_info=True)
+        return None
+
+    content = _strip_frontmatter(content).strip()
+    if not content:
+        logger.warning(f"user_instructions_file is empty, skipping: {path}")
+        return None
+
+    return content
+
+
 def _merge_dicts(
         base: dict[str, Any],
         override: dict[str, Any]) -> dict[str, Any]:
@@ -174,6 +225,18 @@ def load_config(cwd: Path | None) -> Config:
 
         if agent_md_content:
             config_dict['developer_instructions'] = agent_md_content
+
+    # An inline `user_instructions` always wins. Only when it is unset (or
+    # left as the empty placeholder) does `user_instructions_file` fill it.
+    inline_user_instructions = config_dict.get("user_instructions")
+    user_instructions_file = config_dict.get("user_instructions_file")
+    if (
+        user_instructions_file
+        and not (inline_user_instructions or "").strip()
+    ):
+        file_content = _get_user_instructions_file(str(user_instructions_file), cwd)
+        if file_content:
+            config_dict['user_instructions'] = file_content
 
     try:
         config = Config(**config_dict)

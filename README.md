@@ -51,7 +51,7 @@ postal --resume 3f2a1c   # resume a specific session by id
 postal sessions          # list saved sessions
 ```
 
-Configuration lives in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`, and `AGENTS.md` is picked up automatically.
+Configuration lives in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`, and `AGENTS.md` is picked up automatically. Personal preferences can be kept inline in `user_instructions` or loaded from a Markdown file such as a `~/.you.md` profile with `user_instructions_file`.
 
 Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration.md)
 

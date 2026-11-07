@@ -17,6 +17,24 @@ Postal walks up from the working directory to the repository root, collecting ev
 
 Setting `developer_instructions` in the config replaces that discovery entirely.
 
+## User instructions from a file
+
+`user_instructions` is for your own preferences, the ones that follow you from project to project: how you like to be answered, which conventions you default to, what the agent should never do. Keeping a paragraph of that inline in TOML gets awkward, so `user_instructions_file` can point at a Markdown file instead:
+
+```toml
+user_instructions_file = "~/.you.md"
+```
+
+The file is read once at startup and its body is sent as the user instructions. `~` and environment variables are expanded, and a relative path is resolved against the working directory, so a project can ship its own `.you.md` via `.postal/config.toml`:
+
+```toml
+user_instructions_file = ".you.md"
+```
+
+A leading YAML frontmatter block (`---` ... `---`) is stripped before the content reaches the model. An inline `user_instructions` that is not empty always takes precedence over the file. If the file is missing or unreadable, Postal logs a warning and starts without user instructions rather than failing.
+
+The example path above is a [you.md](https://github.com/brainsparker/you.md) profile: a plain Markdown file (small YAML frontmatter, then headed sections such as "How I Communicate" and "How I Work") that other assistants can read as well, so the same preferences do not have to be maintained once per tool. Any Markdown file works; the format is not required.
+
 ## Full example
 
 ```toml
@@ -25,6 +43,7 @@ approval = "on_request"         # "on_request", "auto_edit", "auto", "on_fail", 
 allowed_tools = ["read", "write"] # Optional: restrict the agent to these tools
 developer_instructions = ""     # General instructions for the agent (overrides AGENTS.md when set)
 user_instructions = ""          # Instructions for the user's specific preferences
+# user_instructions_file = "~/.you.md"  # Or load them from a Markdown file (used when user_instructions is empty)
 debug = false                   # Enable debug logging
 hooks_enabled = true            # Enable or disable hooks globally
 
@@ -79,6 +98,7 @@ enabled = true
 | `allowed_tools` | unset | If set, the agent and its sub-agents only see these tools. |
 | `developer_instructions` | from `AGENTS.md` | Project instructions handed to the model. |
 | `user_instructions` | unset | Your personal preferences, sent alongside the above. |
+| `user_instructions_file` | unset | Path to a Markdown file (for example `~/.you.md`) read into `user_instructions` when that is empty. Frontmatter is stripped; a missing file logs a warning. |
 | `hooks_enabled` | `true` | Master switch for every hook. |
 | `max_turns` | `30` | Tool-calling rounds before one run gives up. |
 | `max_tool_output_tokens` | `50000` | Ceiling on how much of a tool's output reaches the model. |
