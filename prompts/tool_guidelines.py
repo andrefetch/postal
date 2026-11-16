@@ -22,6 +22,25 @@ You have access to the following tools to accomplish your tasks:
             description = description[:100] + "..."
         guidelines += f"- **{tool.name}**: {description}\n"
 
+    if any(t.name == "spawn_agent" for t in tools):
+        guidelines += """
+
+## Concurrent delegation
+
+- Use `spawn_agent` for independent subtasks. It returns an ID immediately; spawn
+  several children before calling `wait_agents` so they can work concurrently.
+- Give every child a self-contained goal and the context it needs. Each child has
+  its own conversation and cannot see your conversation history.
+- Use the `general` role for permitted MCP, custom, or network tools. Specialized
+  roles narrow the inherited tools. Children can delegate under the same limits.
+- Call `wait_agents` to collect results before giving your final answer. Inspect
+  each status: failed, cancelled and timed-out agents did not complete the task.
+- Use `list_agents` to inspect progress and `cancel_agent` for work no longer needed.
+- Assign changes to a particular file to one agent. Mutating tools are serialized,
+  but a child's earlier reads may be stale if another agent changes the same file.
+- The `subagent_*` tools are blocking shortcuts for a single delegated task.
+"""
+
     if subagent_tools:
         guidelines += "\n## Sub-Agents\n\n"
         for tool in subagent_tools:

@@ -17,7 +17,7 @@ debug = false
 # command='python3 ./scripts/test_tool.py'
 
 [model]
-name = "apodex/apodex-1.1-mini:free"
+name = "baidu/ernie-5.5-flash-preview:free"
 temperature = 1.0
 context_window = 256000
 

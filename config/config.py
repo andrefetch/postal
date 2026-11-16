@@ -56,6 +56,15 @@ class SessionConfig(BaseModel):
     max_sessions: int = Field(default=50, ge=1)
 
 
+class AgentsConfig(BaseModel):
+    """Limits shared by the entire delegation tree for one user turn."""
+
+    max_concurrent: int = Field(default=4, ge=1, le=32)
+    max_depth: int = Field(default=2, ge=0, le=8)
+    max_agents: int = Field(default=12, ge=1, le=128)
+    timeout_seconds: float = Field(default=600, gt=0)
+
+
 class BashEnvironmentConfig(BaseModel):
     ignore_default_excludes: bool = False # for filtering keys, secrets
     exclude_patterns: list[str] = Field(
@@ -179,6 +188,7 @@ class Config(BaseModel):
     reasoning: ReasoningConfig = Field(default_factory=ReasoningConfig)
 
     session: SessionConfig = Field(default_factory=SessionConfig)
+    agents: AgentsConfig = Field(default_factory=AgentsConfig)
 
     approval: ApprovalPolicy = ApprovalPolicy.ON_REQUEST
 

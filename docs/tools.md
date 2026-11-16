@@ -43,6 +43,7 @@ The main agent can delegate to a specialized sub-agent, each of which runs its o
 
 | Sub-agent | What it is for |
 | --- | --- |
+| `general` | Uses any tools permitted by its parent, including network, MCP and custom tools. |
 | `codebase_investigator` | Answers questions about code structure; usually the first step before a review. |
 | `code_reviewer` | Reviews changes for quality, bugs and improvements. |
 | `software_architect` | Writes code to a prompt while staying inside the project's existing style. |
@@ -50,6 +51,39 @@ The main agent can delegate to a specialized sub-agent, each of which runs its o
 | `debugger` | Tracks down errors and inconsistencies, then fixes them with `read`, `write` and `edit`. |
 
 Approvals still route through you: a sub-agent's tool calls surface as confirmations in the parent session, so delegation never becomes a way around the policy.
+
+### Concurrent and nested delegation
+
+| Tool | What it does |
+| --- | --- |
+| `spawn_agent(role, goal)` | Starts a child in the background and immediately returns its ID. |
+| `wait_agents(agent_ids)` | Waits for descendants and returns each result, status and usage. |
+| `list_agents()` | Lists the caller's descendants and their current status. |
+| `cancel_agent(agent_id)` | Cancels a descendant and its children, then waits for cleanup. |
+
+Spawn independent tasks before waiting so they run concurrently. Children can
+delegate again within the same turn's limits. Each child has a separate conversation;
+its goal must include the context it needs. The existing `subagent_*` tools remain
+blocking shortcuts for one child.
+
+The live agent tree shows nested tasks, active tools, elapsed time and token usage.
+Use **↑/↓** to select a child, **Enter** to expand its recent activity and result,
+and **c** to cancel its subtree. **Ctrl+C** interrupts the whole turn (while an
+approval prompt is open, it rejects that request). Afterward, `/agents` shows the
+tree and `/agents <id>` shows a full result. This detail is kept for the current
+process's last turn; child conversations are not saved as resumable sessions.
+
+By default the tree has at most four executing agents, two child levels below the
+root, and twelve agents total including the root. Waiting parents release their
+execution slots. All children finish or are cancelled before the turn closes.
+See the `[agents]` settings in [Configuration](configuration.md).
+
+Child tool permissions are intersected with their parent's and enforced at
+execution, including for MCP and custom tools. An empty `allowed_tools` list
+allows no tools. Approval requests are queued centrally. Mutating tool operations
+are serialized, including their approval previews; give changes to the same file
+to one agent because previous reads can become stale. Child failure is reported
+to its parent without cancelling unrelated siblings.
 
 ## MCP
 

@@ -18,10 +18,14 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
     failed = False
     label = random_thinking_text()
 
-    agent.progress_callback = tui.tool_progress
+    tui.begin_agent_turn(agent.runtime)
+    events = agent.run(message)
 
     try:
-        async for event in agent.run(message):
+        async for event in events:
+            tui.agent_event(event)
+            if event.agent_id != agent.agent_id:
+                continue
             if event.type == AgentEventType.AGENT_START:
                 tui.start_thinking(label)
 
@@ -57,6 +61,9 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
                     event.data.get("arguments", {}),
                 )
 
+            elif event.type == AgentEventType.TOOL_PROGRESS:
+                tui.tool_progress(event.data.get("content", ""))
+
             elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
                 name = event.data.get("name", "unknown")
                 kind = _tool_kind(agent, name)
@@ -86,10 +93,11 @@ async def stream_turn(tui: TUI, agent: Agent, message: str) -> str | None:
                 failed = True
                 break
     finally:
+        await events.aclose()
         tui.stop_thinking()
         tui.end_reasoning()
         if streaming:
             tui.end_assistant()
-        agent.progress_callback = None
+        await tui.finish_agent_turn()
 
     return None if failed else final_response

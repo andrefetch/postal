@@ -11,6 +11,7 @@ class AgentEventType(str, Enum):
     AGENT_START="agent_start"
     AGENT_END="agent_end"
     AGENT_ERROR="agent_error"
+    AGENT_STATUS = "agent_status"
 
     # Token accounting, emitted once per completion
     USAGE = "usage"
@@ -26,11 +27,14 @@ class AgentEventType(str, Enum):
     # Tool Calls
     TOOL_CALL_START = 'tool_call_start'
     TOOL_CALL_COMPLETE = 'tool_call_complete'
+    TOOL_PROGRESS = 'tool_progress'
 
 @dataclass
 class AgentEvent:
     type: AgentEventType
     data: dict[str, Any] = field(default_factory=dict)
+    agent_id: str | None = None
+    parent_agent_id: str | None = None
 
     @classmethod
     def agent_start(

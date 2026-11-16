@@ -30,8 +30,8 @@ def _complete(text: str) -> list[tuple[str, str]]:
 class SlashCompleterTests(unittest.TestCase):
     def test_slash_alone_lists_every_command(self) -> None:
         names = {name for name, _ in _complete("/")}
-        self.assertTrue({"help", "clear", "model", "exit", "quit"}.issubset(names))
-        self.assertEqual(len(names), 18)
+        self.assertTrue({"help", "clear", "model", "agents", "exit", "quit"}.issubset(names))
+        self.assertEqual(names, set(_commands().command_names()))
 
     def test_prefix_filters_commands(self) -> None:
         self.assertEqual({name for name, _ in _complete("/th")}, {"thinking"})

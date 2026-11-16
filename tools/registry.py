@@ -1,14 +1,20 @@
+from __future__ import annotations
+
 from config.config import Config
 from hooks.hook_system import HookSystem
 from safety.approval import ApprovalContext, ApprovalDecision, ApprovalManager
 from tools.base import Tool
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+from contextlib import AsyncExitStack
 from pathlib import Path
 from tools.base import ToolResult, ToolInvocation
 from tools.core import get_all_core_tools
 import logging
 
 from tools.subagents.subagents import SubAgentTool, get_default_subagent_definitions
+
+if TYPE_CHECKING:
+    from agent.runtime import AgentRuntime
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +62,7 @@ class ToolRegistry:
         for mcp_tool in self._mcp_tools.values():
             tools.append(mcp_tool)
 
-        if self.config.allowed_tools:
+        if self.config.allowed_tools is not None:
             allowed_set = set(self.config.allowed_tools)
             tools = [t for t in tools if t.name in allowed_set]
 
@@ -73,7 +79,11 @@ class ToolRegistry:
             hook_system: HookSystem,
             approval_manager: ApprovalManager | None = None,
             progress_callback: Callable[[str], None] | None = None,
+            runtime: AgentRuntime | None = None,
+            agent_id: str | None = None,
         ) -> ToolResult:
+        if self.config.allowed_tools is not None and name not in self.config.allowed_tools:
+            return ToolResult.error_result(f"Tool is not allowed: {name}")
         tool = self.get(name)
         if tool is None:
             result = ToolResult.error_result(
@@ -99,7 +109,6 @@ class ToolRegistry:
             await hook_system.trigger_after_tool(name, params, result)
             return result
 
-        await hook_system.trigger_before_tool(name, params)
         invocation = ToolInvocation(
             params=params,
             cwd=cwd,
@@ -107,7 +116,17 @@ class ToolRegistry:
                 approval_manager.confirmation_callback if approval_manager else None
             ),
             progress_callback=progress_callback,
+            runtime=runtime,
+            agent_id=agent_id,
         )
+        async with AsyncExitStack() as stack:
+            if runtime is not None and agent_id is not None and tool.is_mutating(params):
+                await stack.enter_async_context(runtime.mutation(agent_id))
+            return await self._execute(tool, invocation, hook_system, approval_manager)
+
+    async def _execute(self, tool, invocation, hook_system, approval_manager) -> ToolResult:
+        name, params = tool.name, invocation.params
+        await hook_system.trigger_before_tool(name, params)
         if approval_manager:
             confirmation = await tool.get_confirmation(invocation)
             if confirmation:
@@ -152,6 +171,7 @@ class ToolRegistry:
         return result
         
 def create_default_registry(config: Config) -> ToolRegistry:
+    from tools.subagents.control import get_agent_tools
 
     registry = ToolRegistry(config)
     
@@ -160,5 +180,8 @@ def create_default_registry(config: Config) -> ToolRegistry:
     
     for subagent_def in get_default_subagent_definitions():
         registry.register(SubAgentTool(config, subagent_def))
+
+    for tool_class in get_agent_tools():
+        registry.register(tool_class(config))
 
     return registry

@@ -44,6 +44,12 @@ enabled = true       # save the conversation so it can be resumed
 max_checkpoints = 20 # snapshots kept per session
 max_sessions = 50    # sessions kept before the oldest are dropped
 
+[agents]
+max_concurrent = 4   # executing agents, including the root; waiting agents release slots
+max_depth = 2        # child levels below the root; 0 disables delegation
+max_agents = 12      # total agents per turn, including completed agents and the root
+timeout_seconds = 600 # child deadline including queueing and initialization
+
 [bash_environment]
 ignore_default_excludes = false
 exclude_patterns = ["*KEY*", "*TOKEN*", "*SECRET*"] # Filters environment variables
@@ -76,7 +82,7 @@ enabled = true
 | Key | Default | What it does |
 | --- | --- | --- |
 | `approval` | `"on_request"` | The approval policy. See [Approvals](approvals.md). |
-| `allowed_tools` | unset | If set, the agent and its sub-agents only see these tools. |
+| `allowed_tools` | unset | Restricts exposed and executable tools, inherited by children. `[]` allows none. |
 | `developer_instructions` | from `AGENTS.md` | Project instructions handed to the model. |
 | `user_instructions` | unset | Your personal preferences, sent alongside the above. |
 | `hooks_enabled` | `true` | Master switch for every hook. |
@@ -112,6 +118,19 @@ enabled = true
 | `max_sessions` | `50` | Sessions kept before the oldest are dropped. |
 
 See [Sessions](sessions.md) for what a checkpoint actually holds.
+
+### `[agents]`
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `max_concurrent` | `4` | Maximum executing agents across the whole tree (1–32), including the root. Waiting releases a slot. |
+| `max_depth` | `2` | Maximum child depth below the root (0–8). `0` disables spawning. |
+| `max_agents` | `12` | Total agents allowed in one turn (1–128), including the root and completed agents. |
+| `timeout_seconds` | `600` | Child deadline, including queueing, approvals and initialization. A shorter role deadline still applies. |
+
+These limits are shared by all descendants. Child agents cannot increase them.
+For restricted tool lists, include `spawn_agent`, `wait_agents`, `list_agents` and
+`cancel_agent` to enable delegation controls alongside the tools the children need.
 
 ### `[bash_environment]`
 

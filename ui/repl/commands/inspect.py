@@ -7,6 +7,8 @@ from agent.agent import Agent
 from tools.mcp.client import MCPServerStatus
 from ui.format import format_duration
 from ui.repl.commands.base import CommandGroup
+from agent.events import AgentEvent, AgentEventType
+from ui.components.agent_tree import AgentTree
 
 MCP_STATUS_STYLES = {
     MCPServerStatus.CONNECTED: "success",
@@ -17,6 +19,25 @@ MCP_STATUS_STYLES = {
 
 
 class InspectCommands(CommandGroup):
+
+    def show_agents(self, agent: Agent, args: list[str]) -> None:
+        records = agent.runtime.records
+        if not records:
+            self.console.print(Text("No agents have run yet.", style="muted"))
+            return
+        if args:
+            record = records.get(args[0])
+            if record is None:
+                self.console.print(Text("Unknown agent ID. Use /agents to list IDs.", style="error"))
+                return
+            self.console.print(Text(f"{record.name} [{record.agent_id}] · {record.status}", style="highlight"))
+            self.console.print(Text(record.goal, style="muted"))
+            self.console.print(Text(record.error or record.result or "No result yet."))
+            return
+        tree = AgentTree()
+        for record in records.values():
+            tree.update(AgentEvent(AgentEventType.AGENT_STATUS, record.snapshot(), record.agent_id, record.parent_agent_id))
+        self.console.print(tree.render(interactive=False, max_rows=len(records)))
 
     def show_stats(self, agent: Agent, args: list[str]) -> None:
         session = agent.session
