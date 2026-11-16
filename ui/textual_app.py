@@ -9,10 +9,10 @@ from platformdirs import user_config_dir
 from prompt_toolkit.history import FileHistory, History
 from rich.console import Console
 from rich.text import Text
-from textual import on
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Center, Horizontal, Vertical, VerticalScroll
 from textual.filter import Monochrome
 from textual.screen import ModalScreen
 from textual.theme import Theme
@@ -24,6 +24,7 @@ from agent.events import AgentEvent, AgentEventType
 from config.config import Config
 from tools.base import ToolConfirmation
 from ui.components.agent_tree import AgentTree
+from ui.components.logo import logo, small_wordmark
 from ui.repl.commands import SlashCommands
 from ui.textual_widgets import AgentsScreen, ApprovalScreen, Composer, MessageBlock, ToolBlock
 from ui.theme import AGENT_THEME
@@ -116,28 +117,34 @@ class PostalApp(App[str | None]):
             with Horizontal(id="topbar"):
                 yield Static("postal", id="brand")
                 yield Static(Text(str(self.config.cwd)), id="workspace")
-            with VerticalScroll(id="conversation"):
-                yield Static(
-                    Text.assemble(
-                        ("p o s t a l\n\n", "bold #dddddd"),
-                        ("A little space to think.\n", "#a0a0a0"),
-                        ("Ask about your code, plan a change, or build something.\n\n", "#737373"),
-                        ("/ commands    ctrl+g agents", "#737373"),
-                    ), id="welcome",
-                )
-            yield OptionList(id="commands", markup=False)
-            with Vertical(id="composer-box"):
-                yield Composer(
-                    id="composer", placeholder="Ask anything…", disabled=True,
-                    show_line_numbers=False, highlight_cursor_line=False,
-                )
-                yield Static(id="model-line", markup=False)
-            with Horizontal(id="statusbar"):
-                yield Static("Connecting", id="run-status", markup=False)
-                yield Static("Enter send · Ctrl+J newline · Ctrl+P commands", id="key-hints")
+            with Vertical(id="main", classes="home"):
+                with Vertical(id="welcome"):
+                    with Center(id="cloud-row"):
+                        yield Static(logo(), id="cloud-logo")
+                    yield Static(small_wordmark(), id="wordmark")
+                    yield Static("What would you like to work on?", id="welcome-hint")
+                yield VerticalScroll(id="conversation")
+                with Vertical(id="prompt-area"):
+                    yield OptionList(id="commands", markup=False)
+                    with Vertical(id="composer-box"):
+                        yield Composer(
+                            id="composer", placeholder="Ask anything…", disabled=True,
+                            show_line_numbers=False, highlight_cursor_line=False,
+                        )
+                        yield Static(id="model-line", markup=False)
+                    with Horizontal(id="statusbar"):
+                        yield Static("Connecting", id="run-status", markup=False)
+                        yield Static("Enter send · Ctrl+J newline · Ctrl+P commands", id="key-hints")
+                yield Static(id="home-spacer")
+
+    def on_resize(self, event: events.Resize) -> None:
+        shell = self.query_one("#shell")
+        shell.set_class(event.size.width < 80, "narrow")
+        shell.set_class(event.size.height < 24, "short")
+        shell.set_class(event.size.height < 18, "compact")
 
     def on_mount(self) -> None:
-        self.query_one("#commands").display = False
+        self.show_commands(False)
         if self._history is None:
             path = Path(user_config_dir("postal")) / "history"
             try:
@@ -223,7 +230,7 @@ class PostalApp(App[str | None]):
         elif isinstance(self.screen, AgentsScreen):
             self.screen.dismiss(None)
         elif self.query_one("#commands").display:
-            self.query_one("#commands").display = False
+            self.show_commands(False)
             self.query_one("#composer", Composer).focus()
         elif self.busy:
             self.action_interrupt()
@@ -248,12 +255,16 @@ class PostalApp(App[str | None]):
         if isinstance(self.screen, ModalScreen):
             return
         menu = self.query_one("#commands", OptionList)
-        menu.display = not menu.display
+        self.show_commands(not menu.display)
         if menu.display:
             self.populate_commands("")
             menu.focus()
         else:
             self.query_one("#composer", Composer).focus()
+
+    def show_commands(self, visible: bool) -> None:
+        self.query_one("#commands").display = visible
+        self.query_one("#main").set_class(visible, "commands-open")
 
     def populate_commands(self, prefix: str) -> None:
         menu = self.query_one("#commands", OptionList)
@@ -261,7 +272,7 @@ class PostalApp(App[str | None]):
         menu.clear_options()
         menu.add_options(Option(Text(f"/{name:<14} {self.commands.describe(name)}"), id=name) for name in matches)
         menu.highlighted = 0 if matches else None
-        menu.display = bool(matches)
+        self.show_commands(bool(matches))
 
     @on(TextArea.Changed, "#composer")
     def composer_changed(self, event: TextArea.Changed) -> None:
@@ -269,8 +280,7 @@ class PostalApp(App[str | None]):
         if text.startswith("/") and not any(char.isspace() for char in text):
             self.populate_commands(text[1:])
         else:
-            self.query_one("#commands").display = False
-        event.text_area.styles.height = min(8, max(3, text.count("\n") + 2))
+            self.show_commands(False)
 
     @on(OptionList.OptionSelected, "#commands")
     def complete_command(self) -> None:
@@ -281,7 +291,7 @@ class PostalApp(App[str | None]):
         composer = self.query_one("#composer", Composer)
         composer.load_text(f"/{name} ")
         composer.move_cursor(composer.document.end)
-        menu.display = False
+        self.show_commands(False)
         composer.focus()
 
     def recall_prompt(self, direction: int) -> None:
@@ -356,6 +366,7 @@ class PostalApp(App[str | None]):
             return
         conversation = self.query_one("#conversation", VerticalScroll)
         follow = force_scroll or conversation.is_vertical_scroll_end
+        self.query_one("#main").remove_class("home")
         welcome = self.query("#welcome")
         if welcome:
             await welcome.remove()

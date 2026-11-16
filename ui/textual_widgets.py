@@ -33,6 +33,18 @@ class Composer(TextArea):
             self.text = text
             super().__init__()
 
+    def resize_to_content(self) -> None:
+        # Use visual lines so pasted text and terminal resizes also fit.
+        limit = min(8, max(3, self.app.size.height - 17))
+        self.styles.height = min(limit, max(3, self.wrapped_document.height + self.gutter.height))
+
+    def on_resize(self) -> None:
+        self.call_after_refresh(self.resize_to_content)
+
+    @on(TextArea.Changed)
+    def resize_after_edit(self) -> None:
+        self.resize_to_content()
+
     async def _on_key(self, event: events.Key) -> None:
         menu = self.app.query_one("#commands")
         if menu.display and event.key in {"up", "down", "tab"}:

@@ -12,6 +12,7 @@ from textual.widgets import Collapsible, OptionList, Static
 from client.llm_client import LLMClient
 from client.response import StreamEvent, StreamEventType, TextDelta, TokenUsage, ToolCall
 from config.config import Config
+from ui.components.logo import logo
 from ui.textual_app import PostalApp
 from ui.textual_widgets import AgentsScreen, ApprovalScreen, Composer, MessageBlock, ToolBlock
 
@@ -71,6 +72,79 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(pilot.press("ctrl+q"), 3)
             self.assertTrue(app._exit)
 
+    async def test_home_centers_cloud_and_composer_at_different_sizes(self):
+        for size in ((140, 40), (100, 30), (80, 24), (50, 18), (40, 12)):
+            with self.subTest(size=size):
+                async with self.running_app(size=size) as (app, pilot):
+                    box = app.query_one("#composer-box").region
+                    cloud = app.query_one("#cloud-logo", Static)
+                    self.assertEqual(cloud.content.plain, logo().plain)
+                    self.assertLessEqual(abs(box.center[0] - size[0] / 2), 1)
+                    self.assertLessEqual(abs(box.center[1] - size[1] / 2), 2)
+                    self.assertLessEqual(abs(cloud.region.center[0] - box.center[0]), 1)
+                    self.assertLessEqual(cloud.region.bottom, box.y)
+                    self.assertFalse(app.query_one("#conversation").display)
+                    self.assertLessEqual(app.query_one("#statusbar").region.bottom, size[1])
+
+    async def test_wrapped_input_grows_and_refits_after_resize(self):
+        async with self.running_app(size=(100, 40)) as (app, pilot):
+            composer = app.query_one("#composer", Composer)
+            initial_height = composer.size.height
+            text = "A prompt that wraps across several visual lines. " * 6
+            composer.load_text(text)
+            await pilot.pause()
+            self.assertGreater(composer.size.height, initial_height)
+            self.assertGreaterEqual(composer.content_size.height, composer.wrapped_document.height)
+            self.assertFalse(composer.show_vertical_scrollbar)
+
+            await pilot.resize_terminal(50, 18)
+            await pilot.pause()
+            self.assertEqual(composer.text, text)
+            self.assertTrue(composer.show_vertical_scrollbar)
+            self.assertLessEqual(app.query_one("#statusbar").region.bottom, app.size.height)
+
+            composer.load_text("\n".join(f"line {i}" for i in range(20)))
+            composer.move_cursor(composer.document.end)
+            await pilot.pause()
+            self.assertGreater(composer.scroll_y, 0)
+            self.assertLessEqual(composer.region.bottom, app.query_one("#model-line").region.y)
+
+            await pilot.resize_terminal(100, 40)
+            await pilot.pause()
+            self.assertLessEqual(composer.size.height, 8)
+            composer.clear()
+            await pilot.pause()
+            self.assertEqual(composer.size.height, initial_height)
+            self.assertFalse(composer.show_vertical_scrollbar)
+
+    async def test_home_command_menu_fits_small_terminals(self):
+        for size in ((80, 24), (50, 18), (40, 12)):
+            with self.subTest(size=size):
+                async with self.running_app(size=size) as (app, pilot):
+                    await pilot.press("/")
+                    menu = app.query_one("#commands", OptionList)
+                    self.assertTrue(menu.display)
+                    self.assertGreater(menu.region.height, 0)
+                    self.assertLessEqual(menu.region.bottom, app.query_one("#composer-box").region.y)
+                    self.assertLessEqual(app.query_one("#statusbar").region.bottom, size[1])
+                    await pilot.press("escape")
+                    self.assertFalse(menu.display)
+                    self.assertTrue(app.query_one("#cloud-logo").visible)
+                    self.assertIs(app.focused, app.query_one("#composer"))
+
+    async def test_long_home_prompt_keeps_controls_inside_viewport(self):
+        for size in ((80, 24), (80, 23), (50, 18), (50, 16), (40, 12)):
+            with self.subTest(size=size):
+                async with self.running_app(size=size) as (app, pilot):
+                    composer = app.query_one("#composer", Composer)
+                    composer.load_text("\n".join(f"line {i}" for i in range(20)))
+                    composer.move_cursor(composer.document.end)
+                    await pilot.pause()
+                    viewport = app.query_one("#main").content_region
+                    for selector in ("#composer-box", "#model-line", "#statusbar"):
+                        self.assertTrue(viewport.contains_region(app.query_one(selector).region))
+                    self.assertTrue(composer.show_vertical_scrollbar)
+
     async def test_multiline_input_and_history_preserve_newlines(self):
         async with self.running_app() as (app, pilot):
             await pilot.press("a", "ctrl+j", "b")
@@ -94,6 +168,9 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.query_one(".reasoning-block", Collapsible).collapsed)
             self.assertEqual(app._context_tokens, 20)
             self.assertFalse(app.query("#welcome"))
+            self.assertFalse(app.query_one("#main").has_class("home"))
+            self.assertTrue(app.query_one("#conversation").display)
+            self.assertGreater(app.query_one("#composer").region.y, app.size.height / 2)
 
     async def test_command_completion_help_and_clear(self):
         async with self.running_app() as (app, pilot):
