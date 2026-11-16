@@ -23,6 +23,8 @@ postal login    # opens your browser to authorize with OpenRouter
 postal          # start the interactive TUI
 ```
 
+Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required). Set `POSTAL_UI=textual` to use the previous Textual interface instead.
+
 ## Usage
 
 Run `postal` from the project you want to work on, then describe your task in plain language. Start by exploring the codebase, ask for a plan, or jump into a specific change:
@@ -88,7 +90,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger` |
 | **MCP** | Connects to external MCP servers for additional tools and data sources |
 | **Skills** | Automatically checks for `SKILLS.md` files during your first prompt, bring your skills over that you've used on any other harness
-| **Interactive TUI** | Charcoal Textual interface with a centered prompt bar, model and effort controls, streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
+| **Interactive TUI** | TypeScript/Ink interface with a centered prompt bar, model and effort controls, streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting |
 
 ## Slash commands

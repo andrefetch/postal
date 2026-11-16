@@ -11,15 +11,19 @@ requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "andrefetch" }]
-keywords = ["ai", "agent", "cli", "coding-assistant", "tui", "openrouter"]
+keywords = ["ai", "agent", "cli", "coding-assistant", "tui", "openrouter", "ink", "react"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: JavaScript",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: TypeScript",
     "Topic :: Software Development",
 ]
 dependencies = [
@@ -37,6 +41,13 @@ dependencies = [
     "tiktoken>=0.13",
 ]
 
+# The interactive TUI is an Ink/React program in ui/terminal. It is bundled
+# ahead of time into ui/terminal_bundle/postal.mjs (committed, and included in
+# the sdist/wheel) and executed by `node`, so installing Postal requires a
+# Node.js 22+ runtime but never npm or the TypeScript dependencies. Rebuild it
+# from a checkout with:
+#   npm ci --prefix ui/terminal && npm run build --prefix ui/terminal
+
 [project.urls]
 Homepage = "https://github.com/andrefetch/postal"
 Repository = "https://github.com/andrefetch/postal"
@@ -47,9 +58,21 @@ postal = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]
+include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["agent*", "client*", "config*", "context*", "hooks*", "prompts*", "safety*", "tools*", "ui*", "utils*"]
+exclude = ["ui.terminal", "ui.terminal.*", "ui.terminal_bundle", "ui.terminal_bundle.*"]
 
 [tool.setuptools.package-data]
-ui = ["*.tcss"]
+"*" = [
+    "*.md", "*.txt", "*.tcss", "*.toml",
+    "ui/terminal/package.json", "ui/terminal/package-lock.json",
+    "ui/terminal/tsconfig.json", "ui/terminal/build.mjs",
+    "ui/terminal/src/*.ts", "ui/terminal/src/*.tsx",
+    "ui/terminal/test/*.ts", "ui/terminal/test/*.tsx",
+    "ui/terminal_bundle/*.mjs", "ui/terminal_bundle/*.txt",
+]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.py[cod]"]

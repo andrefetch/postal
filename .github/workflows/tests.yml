@@ -1,4 +1,4 @@
-name: Python tests
+name: Tests
 
 on:
   pull_request:
@@ -8,11 +8,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: python-tests-${{ github.event.pull_request.number || github.ref }}
+  group: tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  tests:
+  python:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -36,3 +36,28 @@ jobs:
         run: python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
       - name: Run Python tests
         run: python -m pytest tests -q
+
+  terminal:
+    name: TypeScript terminal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ui/terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/terminal/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npm run check
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Fail if the committed bundle is stale
+        run: test -z "$(git status --porcelain ui/terminal_bundle)"

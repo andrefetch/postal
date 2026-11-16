@@ -12,7 +12,9 @@ To check for and install the latest release:
 postal upgrade
 ```
 
-Postal needs Python 3.11 or newer. A `Dockerfile` and Compose file live in [`docker/`](../docker/) if you would rather run the agent sandboxed.
+Postal needs Python 3.11 or newer and Node.js 22 or newer (the interactive TUI is a bundled TypeScript program that runs on `node`). The npm dependencies are bundled into the package, so you never need to run `npm install` to use Postal. A `Dockerfile` and Compose file live in [`docker/`](../docker/) if you would rather run the agent sandboxed.
+
+Set `POSTAL_UI=textual` to use the previous Textual interface instead of the TypeScript one, for example on a machine without Node.
 
 When a newer release is available, Postal displays a notice when the interactive TUI starts. It never upgrades automatically; run `postal upgrade` yourself to install it.
 
@@ -59,7 +61,7 @@ These go before the command, or on their own with the bare `postal`.
 
 ## Interactive terminal
 
-`postal` opens a full-screen Textual interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools and reasoning are collapsed until expanded. Agent activity opens in a separate dialog.
+`postal` opens a full-screen Ink interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools and reasoning are collapsed until expanded. Agent activity opens in an overlay.
 
 The prompt bar's `+` menu adds workspace text/code file references, requests web search for the next prompt, or opens slash commands. File and web chips can be removed before sending. The model picker accepts a model ID and lists models used during the session; the effort picker uses the supported reasoning levels. The arrow sends the prompt and becomes a stop button while Postal is working. Use `Tab` to reach these controls or click them. Settings changes preserve the current draft.
 
@@ -70,14 +72,15 @@ The prompt bar's `+` menu adds workspace text/code file references, requests web
 | `Alt+Up` / `Alt+Down` | Recall earlier prompts, including multiline prompts |
 | `/`, `Ctrl+P` | Open slash commands; type to filter, arrows to select, `Tab` or `Enter` to complete |
 | `Ctrl+G` | Open or close nested agent activity |
-| `Ctrl+O` | Expand or collapse the latest tool output |
+| `Ctrl+O` | Expand or collapse the latest tool or reasoning block |
 | `Ctrl+End` | Scroll to the latest message |
-| `Esc`, `Ctrl+C` | Interrupt a running turn; reject an open approval request |
+| `PageUp` / `PageDown` | Scroll the conversation |
+| `Esc`, `Ctrl+C` | Interrupt a running turn; close a menu; reject an open approval request |
 | `Ctrl+Q` | Cancel active work, save the conversation, and exit |
 
-In agent activity, arrows select an agent, `Enter` expands its children, and `c` cancels its subtree. The selected agent's recent tools and result appear underneath. Approval dialogs show the command or diff before execution: `y` approves, while `n` or `Esc` rejects. The reject button receives focus by default.
+In agent activity, arrows select an agent, `Enter` runs its slash-command choice, and `c` cancels the selected agent's subtree. The selected agent's goal, status, and result appear underneath. Approval overlays show the command or diff before execution: `y` approves, while `n` or `Esc` rejects. The reject button is focused by default.
 
-Scrolling up keeps your place while a response streams. Scroll back to the bottom or press `Ctrl+End` to follow new output again.
+Scrolling up keeps your place while a response streams. Scroll back to the bottom or press `Ctrl+End` to follow new output again. Tool output and reasoning are collapsible with a click or `Ctrl+O`.
 
 ## Examples
 

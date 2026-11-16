@@ -13,7 +13,8 @@ Postal is an object-oriented codebase. The agent loop, the tool layer, the safet
 | `safety/` | `ApprovalManager` and the approval policy types |
 | `config/` | Pydantic config models and the TOML loader |
 | `hooks/` | `HookSystem`, which executes lifecycle hooks |
-| `ui/` | `PostalApp` (Textual), `Repl` launcher, `TUI` (single-shot Rich rendering), slash command groups, and render components |
+| `ui/` | `Repl` launcher, `BridgeSession` (JSON-lines backend for the TypeScript TUI), `TUI` (single-shot Rich rendering), slash command groups, and render components |
+| `ui/terminal/` | The interactive TUI: an Ink/React TypeScript app, its build script, and tests. Bundled to `ui/terminal_bundle/postal.mjs` |
 
 ## One abstract base class, every tool
 
@@ -71,7 +72,11 @@ Errors form a single hierarchy rooted at `AgentError`, which carries a message, 
 
 ## The UI splits state from rendering
 
-Interactive sessions run through `ui/textual_app.py`. `PostalApp` owns the session lifecycle and consumes structured agent events, batching streaming text updates while keeping child activity in an `AgentTree` view. `ui/textual_widgets.py` contains the composer, message/tool blocks, and approval and agent dialogs. `ui/postal.tcss` defines the minimal layout; a grayscale theme and line filter keep the complete display monochrome. Existing slash commands write to a captured Rich console so their output stays inside the conversation.
+Interactive sessions are a TypeScript Ink/React program in `ui/terminal/`. Python launches it with the bundled `ui/terminal_bundle/postal.mjs`, which spawns `python -m ui.bridge` and talks JSON lines over stdin/stdout. `BridgeSession` (`ui/bridge.py`) owns the agent lifecycle, forwards `AgentEvent`s, handles approvals, and applies slash commands against a captured Rich console so their output stays inside the conversation. The frontend never parses progress strings: it consumes structured events.
+
+Inside the frontend, `state.ts` is a pure reducer over the protocol messages, so streaming behaviour is testable without a terminal. `App.tsx` owns transport, focus, and menus; `components.tsx` renders the conversation, prompt bar, and overlays; `editor.ts` implements the line editor (grapheme-aware movement, wrapping, history); `mouse.tsx` translates SGR mouse reports into clicks and wheel events. `demo.ts` provides a local fake backend for UI iteration without a model.
+
+`POSTAL_UI=textual` keeps the previous Textual interface (`ui/textual_app.py`, `ui/textual_widgets.py`, `ui/postal.tcss`) available as a fallback, and `ui/textual_app.py` remains the reference implementation for streaming and modal behaviour.
 
 The single-shot CLI retains the Rich renderer below. Both interfaces use the same agent runtime, approval policy, and session storage.
 

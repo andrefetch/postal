@@ -26,11 +26,28 @@ Keep PRs focused. Smaller, single-purpose PRs are easier to review and get merge
 
 ## UI Component-Based System
 
-The interactive interface uses Textual: orchestration is in `ui/textual_app.py`, the prompt bar and its pickers in `ui/prompt_bar.py`, shared widgets and dialogs in `ui/textual_widgets.py`, and layout/styles in `ui/postal.tcss`. Use neutral charcoal surfaces with a restrained lavender accent for prompt controls. Use `App.run_test()` with a Pilot for keyboard, modal, streaming, and shutdown regressions. `tests/test_textual_ui.py` provides examples with mocked model responses, so no API key is required.
+The interactive interface is the TypeScript program in `ui/terminal/`. Keep Python responsible for the agent, tools, sessions, and approvals, and the frontend for rendering and input. The boundary is the JSON-lines protocol in `ui/bridge.py` (`BridgeSession`) and `ui/terminal/src/protocol.ts`; changing one side means changing the other, plus `tests/test_ui_bridge.py`.
+
+Layout conventions: neutral charcoal surfaces with a restrained lavender accent for prompt controls. Keep the screen monochrome. Every visual element is a separate component: rendering lives in `ui/terminal/src/components.tsx`, the line editor in `editor.ts`, and screen state in the pure reducer in `state.ts`. Prefer adding a reducer case and a test over adding component-level state.
+
+### Working on the frontend
+
+```bash
+cd ui/terminal
+npm ci
+npm run check     # tsc --noEmit
+npm test          # node --test via tsx
+npm run build     # bundles to ../terminal_bundle/postal.mjs
+npm run preview   # run the UI against a local fake backend
+```
+
+Commit the rebuilt `ui/terminal_bundle/postal.mjs` whenever `ui/terminal/src` changes: the Python package ships the bundle, not the TypeScript sources, so an unbuilt change never reaches users. The `TypeScript terminal` job in CI rebuilds and fails if the committed bundle is stale. `tests/test_ui_bridge.py` exercises the protocol with a real `BridgeSession`, so no API key is required.
+
+`POSTAL_UI=textual` still selects the previous Textual interface (`ui/textual_app.py`, `ui/textual_widgets.py`). Treat it as a maintained fallback: keep it importable and keep `tests/test_textual_ui.py` passing, but new interactive work goes in `ui/terminal/`.
 
 Postal uses a component-based UI system where each visual element is a separate, reusable component. This design makes it easier to:
 
-- **Create new UI elements:** Add new components following the existing patterns in `ui/components/`
+- **Create new UI elements:** Add new components following the existing patterns in `ui/components/` and `ui/terminal/src/`
 - **Maintain and test components:** Each component is isolated and can be tested independently
 - **Customize the appearance:** Modify individual components without affecting other parts
 - **Understand the codebase:** Components are self-contained with clear purposes

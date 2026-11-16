@@ -1,0 +1,19 @@
+# The interactive TUI: TypeScript sources, their build inputs, and the
+# committed bundle that the Python launcher executes with `node`.
+include ui/terminal/package.json ui/terminal/package-lock.json ui/terminal/tsconfig.json ui/terminal/build.mjs
+recursive-include ui/terminal/src *.ts *.tsx
+recursive-include ui/terminal/test *.ts *.tsx
+recursive-include ui/terminal_bundle *.mjs *.txt
+prune ui/terminal/node_modules
+
+# Documentation and package metadata that ships in the sdist.
+include README.md LICENSE pyproject.toml
+recursive-include docs *.md
+recursive-include docker Dockerfile docker-compose.yml README.md
+
+# Never ship build output or local caches.
+global-exclude __pycache__/* *.py[cod] .DS_Store
+prune build
+prune dist
+prune ui/terminal/node_modules
+prune .venv

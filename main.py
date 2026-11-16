@@ -177,7 +177,10 @@ def run(ctx: click.Context, prompt: str | None):
         if result is None:
             sys.exit(1)
     else:
-        asyncio.run(Repl(config, resume=resume, upgrade_notice=_upgrade_notice()).run())
+        try:
+            asyncio.run(Repl(config, resume=resume, upgrade_notice=_upgrade_notice()).run())
+        except RuntimeError as exc:
+            raise click.ClickException(str(exc)) from exc
 
 
 @main.command(
