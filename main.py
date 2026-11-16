@@ -14,6 +14,7 @@ from ui import TUI, Repl, get_console, stream_turn
 import asyncio
 import click
 import json
+import shutil
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version as installed_version
@@ -52,6 +53,24 @@ def _upgrade_notice() -> str | None:
     if latest > current:
         return f"Postal {latest} is available (you have {current}). Use `postal upgrade` to update."
     return None
+
+
+def _upgrade_command() -> list[str]:
+    """Use pipx for its macOS environments, otherwise this interpreter's pip."""
+
+    environment = Path(sys.prefix)
+    if sys.platform == "darwin" and (environment / "pipx_metadata.json").is_file():
+        pipx = shutil.which("pipx")
+        if pipx is None:
+            raise click.ClickException(
+                "This installation is managed by pipx, but pipx is not on PATH. "
+                "Restore pipx to PATH, then run postal upgrade again."
+            )
+        # The environment name includes any suffix used at installation time.
+        return [pipx, "upgrade", environment.name]
+
+    return [sys.executable, "-m", "pip", "install", "--upgrade", "postalcli"]
+
 
 async def run_once(config: Config, message: str, resume: str | None = None) -> str | None:
     tui = TUI(config)
@@ -306,6 +325,8 @@ def logout():
 
 @main.command()
 def upgrade():
+    """Upgrade Postal using the installer for its current environment."""
+
     try:
         current = Version(installed_version("postalcli"))
     except PackageNotFoundError as error:
@@ -322,14 +343,15 @@ def upgrade():
         console.print(f"[success]Postal is already up to date ({current}).[/success]")
         return
 
+    command = _upgrade_command()
     console.print(f"Updating postal from {current} to {latest}...")
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "postalcli"],
-        check=False,
-    )
+    try:
+        result = subprocess.run(command, check=False)
+    except OSError as error:
+        raise click.ClickException(f"Could not start the upgrade: {error}") from error
     if result.returncode:
         raise click.ClickException("postal upgrade failed")
-    console.print(f"[success]Postal upgraded to {latest}.[/success]")
+    console.print("[success]Upgrade command completed. Restart Postal to load any updates.[/success]")
 
 
 @main.command("/help")
