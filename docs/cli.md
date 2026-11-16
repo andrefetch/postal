@@ -16,6 +16,14 @@ Postal needs Python 3.11 or newer. A `Dockerfile` and Compose file live in [`doc
 
 When a newer release is available, Postal displays a notice when the interactive TUI starts. It never upgrades automatically; run `postal upgrade` yourself to install it.
 
+On macOS (`darwin`), `postal upgrade` detects pipx-managed installations and runs
+`pipx upgrade <environment>`, preserving any installation suffix.
+For pip installations, it runs `python -m pip install --upgrade postalcli` using
+Postal's current Python interpreter. Pip works on macOS as well as Windows and
+Linux. If a macOS installation is managed by pipx but `pipx` is missing from
+`PATH`, Postal asks you to restore it before upgrading. Restart Postal afterward
+to load the updated code.
+
 ## Log in
 
 ```bash
