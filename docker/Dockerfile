@@ -14,6 +14,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
     && rm -rf /var/lib/apt/lists/*
 
+# The interactive TUI is a bundled Node program (ui/terminal_bundle/postal.mjs),
+# so the image needs a Node 22+ runtime even though nothing is compiled here.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 
 FROM base AS build
 

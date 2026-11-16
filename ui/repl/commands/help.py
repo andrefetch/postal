@@ -32,10 +32,12 @@ HELP_TEXT = """\
 ## Tips
 
 - Just type your message to chat with the agent
-- Type `/` to see every command and keep typing to filter them; `↑`/`↓` to pick, `Enter` to run, `Tab` to fill in
+- Type `/` to filter commands; `↑`/`↓` select, `Tab` or `Enter` completes, and `Enter` submits a completed command
+- `Ctrl+J` inserts a newline, `Alt+↑/↓` recalls prompts, and `Ctrl+Q` exits
 - The agent can read, write, and execute code
 - Some operations require approval (can be configured)
-- In the live agent tree, `↑`/`↓` select, `Enter` expands details, and `c` cancels the selected subtree
+- `Ctrl+G` opens agent activity; `↑`/`↓` select, `Enter` expands children, and `c` cancels the selected subtree
+- `Ctrl+O` expands the latest tool; `Esc` interrupts work or rejects an open approval
 - Sessions are saved after every turn; `postal --resume` picks the last one up
 """
 

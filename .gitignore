@@ -75,3 +75,10 @@ uv.lock
 
 # postal proj
 hook.log
+
+# TypeScript terminal dependencies and build output
+node_modules/
+
+# The rebuilt terminal bundle IS committed (the package ships it), so only the
+# local install directory is ignored here. Rebuild with:
+#   npm ci --prefix ui/terminal && npm run build --prefix ui/terminal

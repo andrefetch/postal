@@ -23,6 +23,8 @@ postal login    # opens your browser to authorize with OpenRouter
 postal          # start the interactive TUI
 ```
 
+Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required). Set `POSTAL_UI=textual` to use the previous Textual interface instead.
+
 ## Usage
 
 Run `postal` from the project you want to work on, then describe your task in plain language. Start by exploring the codebase, ask for a plan, or jump into a specific change:
@@ -88,7 +90,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger` |
 | **MCP** | Connects to external MCP servers for additional tools and data sources |
 | **Skills** | Automatically checks for `SKILLS.md` files during your first prompt, bring your skills over that you've used on any other harness
-| **Interactive TUI** | Full-screen terminal interface built on Rich, with streaming responses, live tool call output, visible model reasoning, and token usage tracking |
+| **Interactive TUI** | TypeScript/Ink interface with a centered prompt bar, model and effort controls, streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting |
 
 ## Slash commands
@@ -103,6 +105,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 | `/config` | Show the active configuration |
 | `/stats` | Session statistics: tokens, elapsed time, tool calls |
 | `/tools` | List available tools |
+| `/agents [id]` | Open agent activity, or show one agent's full result |
 | `/mcp` | Show MCP server status |
 | `/sessions [all]` | List saved sessions, newest first |
 | `/sessions rm <n\|id>` | Delete a saved session |
@@ -112,7 +115,9 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 | `/rewind <n\|id>` | Roll the conversation back to a checkpoint |
 | `/exit`, `/quit` | Leave the agent |
 
-Commands autocomplete as you type: hitting `/` lists every command, the list narrows as you keep typing, and `↑`/`↓` select while `Enter` runs the highlighted one (`Tab` fills it in if you want to add arguments first).
+Commands autocomplete as you type: `/` opens the list, typing filters it, and `↑`/`↓` select. `Tab` or `Enter` completes a partial command; `Enter` submits a completed command.
+
+The terminal opens into a single conversation column with a multiline composer. `Enter` sends, `Ctrl+J` adds a line, `Ctrl+P` opens commands, and `Ctrl+G` opens the live agent tree. Tool output and reasoning start collapsed; click a heading to expand it, or use `Ctrl+O` for the latest tool. `Esc` interrupts a turn and `Ctrl+Q` exits. See the [keyboard reference](docs/cli.md#interactive-terminal).
 
 ## Sessions
 

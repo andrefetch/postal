@@ -19,7 +19,7 @@ from ui.theme.palette import hex_colour
 
 class PostalStyle(PygmentsStyle):
 
-    background_color = hex_colour("slate")
+    background_color = "#191919"
 
     styles = {
         Token: hex_colour("silver"),

@@ -4,7 +4,7 @@ This document explains how to deploy and use Postal in Docker containers.
 
 ## Overview
 
-Postal provides Docker support through a pre-built container image that includes all dependencies and configuration for running the AI coding agent in containerized environments.
+Postal provides Docker support through a pre-built container image that includes all dependencies and configuration for running the AI coding agent in containerized environments. The image bundles Python 3.13, Node.js 22 (required by the TypeScript TUI), and the prebuilt `ui/terminal_bundle/postal.mjs`, so nothing is compiled at install time.
 
 ## Quick Start
 

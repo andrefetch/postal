@@ -26,16 +26,35 @@ Keep PRs focused. Smaller, single-purpose PRs are easier to review and get merge
 
 ## UI Component-Based System
 
+The interactive interface is the TypeScript program in `ui/terminal/`. Keep Python responsible for the agent, tools, sessions, and approvals, and the frontend for rendering and input. The boundary is the JSON-lines protocol in `ui/bridge.py` (`BridgeSession`) and `ui/terminal/src/protocol.ts`; changing one side means changing the other, plus `tests/test_ui_bridge.py`.
+
+Layout conventions: neutral charcoal surfaces with a restrained lavender accent for prompt controls. Keep the screen monochrome. Every visual element is a separate component: rendering lives in `ui/terminal/src/components.tsx`, the line editor in `editor.ts`, and screen state in the pure reducer in `state.ts`. Prefer adding a reducer case and a test over adding component-level state.
+
+### Working on the frontend
+
+```bash
+cd ui/terminal
+npm ci
+npm run check     # tsc --noEmit
+npm test          # node --test via tsx
+npm run build     # bundles to ../terminal_bundle/postal.mjs
+npm run preview   # run the UI against a local fake backend
+```
+
+Commit the rebuilt `ui/terminal_bundle/postal.mjs` whenever `ui/terminal/src` changes: the Python package ships the bundle, not the TypeScript sources, so an unbuilt change never reaches users. The `TypeScript terminal` job in CI rebuilds and fails if the committed bundle is stale. `tests/test_ui_bridge.py` exercises the protocol with a real `BridgeSession`, so no API key is required.
+
+`POSTAL_UI=textual` still selects the previous Textual interface (`ui/textual_app.py`, `ui/textual_widgets.py`). Treat it as a maintained fallback: keep it importable and keep `tests/test_textual_ui.py` passing, but new interactive work goes in `ui/terminal/`.
+
 Postal uses a component-based UI system where each visual element is a separate, reusable component. This design makes it easier to:
 
-- **Create new UI elements:** Add new components following the existing patterns in `ui/components/`
+- **Create new UI elements:** Add new components following the existing patterns in `ui/components/` and `ui/terminal/src/`
 - **Maintain and test components:** Each component is isolated and can be tested independently
 - **Customize the appearance:** Modify individual components without affecting other parts
 - **Understand the codebase:** Components are self-contained with clear purposes
 
 ### UI Component Structure
 
-All UI components are in the `ui/components/` directory:
+The shared Rich renderers and single-shot components are in `ui/components/`:
 
 - **Base components:** `Gutter`, `Spinner`, `MarkdownStream`
 - **UI elements:** `logo.py`, `thinking.py`, `shimmer.py`, `tool_call.py`
@@ -74,10 +93,12 @@ class CustomSpinner:
 
 ### Development Tips
 
-- **Run tests locally:** Use `uv sync && uv run pytest` to run the existing test suite
+- **Run tests locally:** Use `uv sync` then `uv run --with pytest python -m pytest tests -q`. With pip, run `python -m pip install -e . pytest` then `python -m pytest tests -q`.
 - **Check component imports:** Verify your changes don't break imports in `ui/components/__init__.py`
 - **Test visually:** Run Postal with your changes to ensure the UI renders correctly
 - **Follow the style guide:** Keep code clean and maintainable
+
+GitHub Actions runs the Python suite on every pull request with Python 3.11 and 3.13. It installs the package and preloads the tokenizer data before testing. You can also start the **Python tests** workflow manually.
 
 ## Reporting bugs
 

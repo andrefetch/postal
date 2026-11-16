@@ -1,22 +1,22 @@
 NEUTRALS = {
-    "bright": "rgb(226,228,234)",
-    "silver": "rgb(176,180,188)",
+    "bright": "rgb(226,226,226)",
+    "silver": "rgb(176,176,176)",
     "black": "rgb(0,0,0)",
-    "graphite": "rgb(120,124,132)",
-    "slate": "rgb(88,94,104)",
-    "accent": "rgb(130,150,180)",
+    "graphite": "rgb(124,124,124)",
+    "slate": "rgb(94,94,94)",
+    "accent": "rgb(184,184,184)",
 }
 
 HUES = {
-    "blue": "rgb(116,160,216)",
-    "green": "rgb(122,190,140)",
-    "amber": "rgb(214,170,102)",
-    "teal": "rgb(96,188,180)",
-    "violet": "rgb(160,144,220)",
-    "lilac": "rgb(198,148,214)",
-    "orange": "rgb(218,140,98)",
-    "magenta": "rgb(206,128,172)",
-    "red": "rgb(216,96,96)",
+    "blue": "rgb(180,180,180)",
+    "green": "rgb(190,190,190)",
+    "amber": "rgb(202,202,202)",
+    "teal": "rgb(176,176,176)",
+    "violet": "rgb(164,164,164)",
+    "lilac": "rgb(178,178,178)",
+    "orange": "rgb(194,194,194)",
+    "magenta": "rgb(184,184,184)",
+    "red": "rgb(220,220,220)",
 }
 
 PALETTE = {**NEUTRALS, **HUES}

@@ -75,7 +75,8 @@ class UIComponentTests(unittest.TestCase):
         console.print(rendered)
         output = console.export_text()
         self.assertIn("+25 -0", output)
-        self.assertIn("… 5 more lines", output)
+        # The hunk header uses one of the twenty preview rows.
+        self.assertIn("… 6 more lines", output)
 
 
 if __name__ == "__main__":
