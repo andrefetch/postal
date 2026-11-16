@@ -13,7 +13,7 @@ Postal is an object-oriented codebase. The agent loop, the tool layer, the safet
 | `safety/` | `ApprovalManager` and the approval policy types |
 | `config/` | Pydantic config models and the TOML loader |
 | `hooks/` | `HookSystem`, which executes lifecycle hooks |
-| `ui/` | `TUI`, `Repl`, the slash command groups, and the render components |
+| `ui/` | `PostalApp` (Textual), `Repl` launcher, `TUI` (single-shot Rich rendering), slash command groups, and render components |
 
 ## One abstract base class, every tool
 
@@ -70,6 +70,10 @@ Configuration is a tree of Pydantic models (`ModelConfig`, `ReasoningConfig`, `S
 Errors form a single hierarchy rooted at `AgentError`, which carries a message, structured `details`, and the underlying `cause`, and serializes through `to_dict()`. `ConfigError` extends it with the offending key and file.
 
 ## The UI splits state from rendering
+
+Interactive sessions run through `ui/textual_app.py`. `PostalApp` owns the session lifecycle and consumes structured agent events, batching streaming text updates while keeping child activity in an `AgentTree` view. `ui/textual_widgets.py` contains the composer, message/tool blocks, and approval and agent dialogs. `ui/postal.tcss` defines the minimal layout; a grayscale theme and line filter keep the complete display monochrome. Existing slash commands write to a captured Rich console so their output stays inside the conversation.
+
+The single-shot CLI retains the Rich renderer below. Both interfaces use the same agent runtime, approval policy, and session storage.
 
 `ui/components/` contains one module per visual element (spinner, gutter, markdown, tool calls, confirmations, plans, thinking, usage, transcript), and the split within them is deliberate. Anything that carries state across frames is a class: `Spinner` owns its frame counter, `MarkdownStream` owns the partial-line buffer that permits markdown to render while it is still arriving, and `Gutter` wraps a renderable so it can be drawn indented beneath a bar. Everything else is a pure function from a value object to a Rich renderable. That is why `tool_call.py` can dispatch on tool kind (`_read`, `_bash`, `_patch`, …) over a single `ToolOutcome` dataclass rather than subclassing a renderer per tool.
 

@@ -57,6 +57,26 @@ These go before the command, or on their own with the bare `postal`.
 | `--resume <id>` | `-r` | Resume a saved session; an id prefix is enough |
 | `--continue` | `-C` | Resume the most recent session for this directory |
 
+## Interactive terminal
+
+`postal` opens a full-screen, monochrome Textual interface. The conversation occupies one column, with a multiline composer and model/status information below it. Tools and reasoning are collapsed until expanded. Agent activity opens in a separate dialog.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Send a prompt or completed command |
+| `Ctrl+J`, `Shift+Enter` | Insert a newline (`Ctrl+J` works in terminals without modified Enter support) |
+| `Alt+Up` / `Alt+Down` | Recall earlier prompts, including multiline prompts |
+| `/`, `Ctrl+P` | Open slash commands; type to filter, arrows to select, `Tab` or `Enter` to complete |
+| `Ctrl+G` | Open or close nested agent activity |
+| `Ctrl+O` | Expand or collapse the latest tool output |
+| `Ctrl+End` | Scroll to the latest message |
+| `Esc`, `Ctrl+C` | Interrupt a running turn; reject an open approval request |
+| `Ctrl+Q` | Cancel active work, save the conversation, and exit |
+
+In agent activity, arrows select an agent, `Enter` expands its children, and `c` cancels its subtree. The selected agent's recent tools and result appear underneath. Approval dialogs show the command or diff before execution: `y` approves, while `n` or `Esc` rejects. The reject button receives focus by default.
+
+Scrolling up keeps your place while a response streams. Scroll back to the bottom or press `Ctrl+End` to follow new output again.
+
 ## Examples
 
 ```bash

@@ -12,6 +12,7 @@ Anything typed after a `/` inside the TUI. `/help` prints this list in the sessi
 | `/config` | Show the active configuration |
 | `/stats` | Session statistics: tokens, elapsed time, tool calls |
 | `/tools` | List available tools |
+| `/agents [id]` | Open nested agent activity, or show one agent's full result |
 | `/mcp` | Show MCP server status |
 | `/sessions [all]` | List saved sessions, newest first |
 | `/sessions rm <n\|id>` | Delete a saved session |

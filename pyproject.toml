@@ -33,6 +33,7 @@ dependencies = [
     "prompt-toolkit>=3.0",
     "pydantic>=2.13",
     "rich>=15.0",
+    "textual>=8.2.8,<9",
     "tiktoken>=0.13",
 ]
 
@@ -49,3 +50,6 @@ py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 include = ["agent*", "client*", "config*", "context*", "hooks*", "prompts*", "safety*", "tools*", "ui*", "utils*"]
+
+[tool.setuptools.package-data]
+ui = ["*.tcss"]

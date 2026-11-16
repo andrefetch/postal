@@ -26,6 +26,8 @@ Keep PRs focused. Smaller, single-purpose PRs are easier to review and get merge
 
 ## UI Component-Based System
 
+The interactive interface uses Textual: orchestration is in `ui/textual_app.py`, widgets and dialogs in `ui/textual_widgets.py`, and layout/styles in `ui/postal.tcss`. Keep it monochrome and use `App.run_test()` with a Pilot for keyboard, modal, streaming, and shutdown regressions. `tests/test_textual_ui.py` provides examples with mocked model responses, so no API key is required.
+
 Postal uses a component-based UI system where each visual element is a separate, reusable component. This design makes it easier to:
 
 - **Create new UI elements:** Add new components following the existing patterns in `ui/components/`
@@ -35,7 +37,7 @@ Postal uses a component-based UI system where each visual element is a separate,
 
 ### UI Component Structure
 
-All UI components are in the `ui/components/` directory:
+The shared Rich renderers and single-shot components are in `ui/components/`:
 
 - **Base components:** `Gutter`, `Spinner`, `MarkdownStream`
 - **UI elements:** `logo.py`, `thinking.py`, `shimmer.py`, `tool_call.py`
@@ -74,10 +76,12 @@ class CustomSpinner:
 
 ### Development Tips
 
-- **Run tests locally:** Use `uv sync && uv run pytest` to run the existing test suite
+- **Run tests locally:** Use `uv sync` then `uv run --with pytest python -m pytest tests -q`. With pip, run `python -m pip install -e . pytest` then `python -m pytest tests -q`.
 - **Check component imports:** Verify your changes don't break imports in `ui/components/__init__.py`
 - **Test visually:** Run Postal with your changes to ensure the UI renders correctly
 - **Follow the style guide:** Keep code clean and maintainable
+
+GitHub Actions runs the Python suite on every pull request with Python 3.11 and 3.13. It installs the package and preloads the tokenizer data before testing. You can also start the **Python tests** workflow manually.
 
 ## Reporting bugs
 

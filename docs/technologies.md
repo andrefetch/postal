@@ -6,8 +6,9 @@ What Postal is built on, and what each piece is actually doing.
 
 | | |
 | --- | --- |
-| **[Rich](https://github.com/Textualize/rich)** | The whole TUI: full-screen live rendering, streaming responses, tool call panels, diffs, markdown, and the color theme. |
-| **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | The input line: key bindings, multiline editing, history, and slash command completion. |
+| **[Textual](https://github.com/Textualize/textual)** | The full-screen interactive terminal: multiline editing, command completion, streaming messages, collapsible tools, approvals, and the agent activity tree. |
+| **[Rich](https://github.com/Textualize/rich)** | Markdown and command output inside Textual, plus the streaming renderer for single-shot runs. |
+| **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | Persistent prompt history shared with the previous interface, and legacy terminal input helpers. |
 | **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
 
 ## Backend

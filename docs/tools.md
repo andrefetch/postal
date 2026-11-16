@@ -66,11 +66,11 @@ delegate again within the same turn's limits. Each child has a separate conversa
 its goal must include the context it needs. The existing `subagent_*` tools remain
 blocking shortcuts for one child.
 
-The live agent tree shows nested tasks, active tools, elapsed time and token usage.
-Use **↑/↓** to select a child, **Enter** to expand its recent activity and result,
-and **c** to cancel its subtree. **Ctrl+C** interrupts the whole turn (while an
-approval prompt is open, it rejects that request). Afterward, `/agents` shows the
-tree and `/agents <id>` shows a full result. This detail is kept for the current
+Open the live agent tree with **Ctrl+G** or `/agents` to see nested tasks and active tools.
+Use **↑/↓** to select a child and read its recent activity and result, **Enter** to
+expand its children, and **c** to cancel its subtree. **Ctrl+C** interrupts the whole
+turn (while an approval prompt is open, it rejects that request). The status line
+shows active agent counts and token usage. `/agents <id>` shows a full result. This detail is kept for the current
 process's last turn; child conversations are not saved as resumable sessions.
 
 By default the tree has at most four executing agents, two child levels below the
