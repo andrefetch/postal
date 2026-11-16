@@ -10,34 +10,49 @@ Postal provides Docker support through a pre-built container image that includes
 
 ### Using Docker Compose
 
-1. **Build and start the container**
+Postal's interface is a full-screen terminal UI, so it needs an attached TTY.
+Run it in the foreground rather than detached:
 
 ```bash
 cd docker
-API_KEY="your_openrouter_api_key" docker-compose up -d
+API_KEY="your_openrouter_api_key" docker compose run --rm postal
 ```
 
-2. **Connect to your workspace**
+The service mounts your current directory (`$POSTAL_WORKSPACE:-..`) as
+`/workspace` inside the container. Use `exit` (or Ctrl-C) to leave the UI; the
+container is removed afterwards.
 
-The container mounts your current directory (`$POSTAL_WORKSPACE:-..`) as `/workspace` inside the container. You can now interact with your code through Postal.
+If you already started it detached with `docker compose up -d`, reattach with
+`docker attach postal` — the UI is still running and waiting for input.
 
 ### Using Docker Image Directly
 
 1. **Build the image**
 
 ```bash
-docker build -t postal:dev ..
+docker build -t postal:dev -f docker/Dockerfile ..
 ```
 
 2. **Run the container**
 
+`-it` is required: without a TTY the UI cannot start.
+
 ```bash
-docker run -d \
+docker run --rm -it \
   --name postal \
   -v "$(pwd):/workspace" \
-  -v "$(pwd)/.postal:/config" \
+  -v postal-config:/config \
   -e API_KEY="your_openrouter_api_key" \
   postal:dev
+```
+
+For a one-shot prompt instead of the interactive UI, no TTY is needed:
+
+```bash
+docker run --rm \
+  -v "$(pwd):/workspace" -v postal-config:/config \
+  -e API_KEY="your_openrouter_api_key" \
+  postal:dev "explain this codebase"
 ```
 
 ## Configuration

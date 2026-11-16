@@ -20,9 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
-    env:
-      TIKTOKEN_CACHE_DIR: ${{ runner.temp }}/tiktoken
-      XDG_CONFIG_HOME: ${{ runner.temp }}/postal-config
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,6 +33,9 @@ jobs:
         run: python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
       - name: Run Python tests
         run: python -m pytest tests -q
+        env:
+          TIKTOKEN_CACHE_DIR: ${{ runner.temp }}/tiktoken
+          XDG_CONFIG_HOME: ${{ runner.temp }}/postal-config
 
   terminal:
     name: TypeScript terminal

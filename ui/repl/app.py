@@ -29,6 +29,12 @@ class Repl:
             from ui.textual_app import PostalApp
             await PostalApp(self.config, resume=self.resume, upgrade_notice=self.upgrade_notice).run_async()
             return
+        if not sys.stdin.isatty():
+            raise RuntimeError(
+                "The interactive TUI needs a terminal. Run `postal` from an interactive shell "
+                "(inside Docker use `docker run -it`, or `docker exec -it <container> postal`), "
+                "or pass a prompt instead: `postal \"your prompt\"`."
+            )
         node = shutil.which("node")
         if node is None:
             raise RuntimeError("The TypeScript TUI requires Node.js 22+. Install Node, or set POSTAL_UI=textual to use the legacy interface.")
