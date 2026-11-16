@@ -35,7 +35,8 @@ class Composer(TextArea):
 
     def resize_to_content(self) -> None:
         # Use visual lines so pasted text and terminal resizes also fit.
-        limit = min(8, max(3, self.app.size.height - 17))
+        sources_height = int(self.app.query_one("#prompt-sources").display)
+        limit = min(6, max(3, self.app.size.height - 17 - sources_height))
         self.styles.height = min(limit, max(3, self.wrapped_document.height + self.gutter.height))
 
     def on_resize(self) -> None:

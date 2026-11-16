@@ -88,7 +88,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 | **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger` |
 | **MCP** | Connects to external MCP servers for additional tools and data sources |
 | **Skills** | Automatically checks for `SKILLS.md` files during your first prompt, bring your skills over that you've used on any other harness
-| **Interactive TUI** | Minimal, monochrome Textual interface with streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
+| **Interactive TUI** | Charcoal Textual interface with a centered prompt bar, model and effort controls, streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
 | **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting |
 
 ## Slash commands

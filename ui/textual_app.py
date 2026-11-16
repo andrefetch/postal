@@ -13,10 +13,9 @@ from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Center, Horizontal, Vertical, VerticalScroll
-from textual.filter import Monochrome
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import Collapsible, OptionList, Static, TextArea
+from textual.widgets import Button, Collapsible, OptionList, Static, TextArea
 from textual.widgets.option_list import Option
 
 from agent.agent import Agent
@@ -25,9 +24,11 @@ from config.config import Config
 from tools.base import ToolConfirmation
 from ui.components.agent_tree import AgentTree
 from ui.components.logo import logo, small_wordmark
+from ui.prompt_bar import PromptBar, PromptPicker
 from ui.repl.commands import SlashCommands
 from ui.textual_widgets import AgentsScreen, ApprovalScreen, Composer, MessageBlock, ToolBlock
 from ui.theme import AGENT_THEME
+from utils.paths import is_binary_file, resolve_path
 
 
 class CommandConsole(Console):
@@ -59,7 +60,6 @@ class PostalApp(App[str | None]):
         self, config: Config, resume: str | None = None, upgrade_notice: str | None = None,
         *, agent_factory=Agent, history: History | None = None,
     ):
-        self._monochrome = Monochrome()
         super().__init__()
         self.config = config
         self.resume_id = resume
@@ -79,6 +79,9 @@ class PostalApp(App[str | None]):
         self._prompts: list[str] = []
         self._history_index = 0
         self._draft = ""
+        self._file_references: list[Path] = []
+        self._use_web = False
+        self._recent_models: list[str] = []
         self._assistant: MessageBlock | None = None
         self._reasoning: Collapsible | None = None
         self._reasoning_body: Static | None = None
@@ -93,7 +96,7 @@ class PostalApp(App[str | None]):
         self.commands = SlashCommands(config, self.command_console)
         self.console.push_theme(AGENT_THEME)
         self.register_theme(Theme(
-            name="postal-mono", primary="#d4d4d4", secondary="#a0a0a0", accent="#eeeeee",
+            name="postal-dark", primary="#d4d4d4", secondary="#a0a0a0", accent="#b39dff",
             foreground="#dedede", background="#101010", surface="#181818", panel="#202020",
             warning="#d4d4d4", error="#eeeeee", success="#bcbcbc", boost="#ffffff",
             dark=True, variables={
@@ -103,10 +106,7 @@ class PostalApp(App[str | None]):
                 "scrollbar-active": "#888888", "scrollbar-background": "#101010",
             },
         ))
-        self.theme = "postal-mono"
-
-    def get_line_filters(self):
-        return [*super().get_line_filters(), self._monochrome]
+        self.theme = "postal-dark"
 
     @property
     def busy(self) -> bool:
@@ -126,12 +126,7 @@ class PostalApp(App[str | None]):
                 yield VerticalScroll(id="conversation")
                 with Vertical(id="prompt-area"):
                     yield OptionList(id="commands", markup=False)
-                    with Vertical(id="composer-box"):
-                        yield Composer(
-                            id="composer", placeholder="Ask anything…", disabled=True,
-                            show_line_numbers=False, highlight_cursor_line=False,
-                        )
-                        yield Static(id="model-line", markup=False)
+                    yield PromptBar(id="composer-box")
                     with Horizontal(id="statusbar"):
                         yield Static("Connecting", id="run-status", markup=False)
                         yield Static("Enter send · Ctrl+J newline · Ctrl+P commands", id="key-hints")
@@ -219,6 +214,8 @@ class PostalApp(App[str | None]):
             screen, future = self._pending_confirmation
             if not future.done():
                 screen.dismiss(False)
+        elif isinstance(self.screen, PromptPicker):
+            self.screen.dismiss(None)
         elif self.busy:
             self._turn_task.cancel()
         else:
@@ -227,7 +224,7 @@ class PostalApp(App[str | None]):
     def action_escape(self) -> None:
         if self._pending_confirmation is not None:
             self.action_interrupt()
-        elif isinstance(self.screen, AgentsScreen):
+        elif isinstance(self.screen, (AgentsScreen, PromptPicker)):
             self.screen.dismiss(None)
         elif self.query_one("#commands").display:
             self.show_commands(False)
@@ -281,6 +278,118 @@ class PostalApp(App[str | None]):
             self.populate_commands(text[1:])
         else:
             self.show_commands(False)
+        self.refresh_prompt_controls()
+
+    def refresh_prompt_controls(self) -> None:
+        self.query_one(PromptBar).update_controls(
+            self.config, busy=self.busy,
+            ready=self.agent is not None and not self.query_one(Composer).disabled,
+        )
+
+    @on(Button.Pressed, "#prompt-send")
+    async def send_or_stop(self) -> None:
+        if self.busy:
+            self.action_interrupt()
+        else:
+            await self.submit_prompt(Composer.Submitted(self.query_one(Composer).text))
+        self.query_one(Composer).focus()
+
+    @on(Button.Pressed, "#prompt-model")
+    def choose_model(self) -> None:
+        current = self.config.model_name
+        models = list(dict.fromkeys([current, *reversed(self._recent_models)]))
+        self.show_commands(False)
+        self.push_screen(PromptPicker(
+            "Choose a model", [(name, name, "Current" if name == current else "Recent") for name in models if name],
+            value=current, placeholder="provider/model-id",
+            validate=lambda value: "Use a model ID without spaces." if any(c.isspace() for c in value) else None,
+        ), self.model_chosen)
+
+    async def model_chosen(self, value: str | None) -> None:
+        if value and not self.busy:
+            await self.execute_command(f"/model {value}", quiet=True)
+        self.query_one(Composer).focus()
+
+    @on(Button.Pressed, "#prompt-effort")
+    def choose_effort(self) -> None:
+        self.show_commands(False)
+        self.push_screen(PromptPicker("Reasoning effort", [
+            ("auto", "Auto", "Model default"),
+            ("minimal", "Minimal", "Quickest response"),
+            ("low", "Low", "Light reasoning"),
+            ("medium", "Medium", "Balanced"),
+            ("high", "High", "More time to think"),
+            ("none", "Off", "No reasoning requested"),
+        ]), self.effort_chosen)
+
+    async def effort_chosen(self, value: str | None) -> None:
+        if value and not self.busy:
+            if value == "auto":
+                self.config.reasoning.effort = None
+                self.config.reasoning.max_tokens = None
+                value = "on"
+            await self.execute_command(f"/thinking {value}", quiet=True)
+        self.query_one(Composer).focus()
+
+    @on(Button.Pressed, "#prompt-add")
+    def choose_context(self) -> None:
+        self.show_commands(False)
+        choices = []
+        if self.agent.session.tool_registry.get("read"):
+            choices.append(("files", "Add a file", "Reference a text or code file"))
+        if self.agent.session.tool_registry.get("search"):
+            choices.append(("web", "Web search", "Use live results for this prompt"))
+        choices.append(("commands", "Commands", "Browse slash commands"))
+        self.push_screen(PromptPicker("Add to your prompt", choices), self.context_chosen)
+
+    def context_chosen(self, value: str | None) -> None:
+        if value == "files":
+            self.push_screen(PromptPicker(
+                "Add a file reference", value="", placeholder="Path relative to your workspace",
+                validate=self.validate_file_reference,
+            ), self.file_chosen)
+            return
+        if value == "commands":
+            self.action_commands()
+            return
+        if value == "web":
+            self._use_web = True
+            self.update_prompt_sources()
+        self.query_one(Composer).focus()
+
+    def validate_file_reference(self, value: str) -> str | None:
+        try:
+            path = resolve_path(self.config.cwd, value)
+            if not path.is_file():
+                return "Enter the path to an existing file."
+            if path.stat().st_size > 10 * 1024 * 1024:
+                return "Choose a file smaller than 10 MB."
+            if is_binary_file(path):
+                return "Choose a text or code file; images aren't supported yet."
+        except (OSError, ValueError):
+            return "This file could not be opened."
+        return None
+
+    def file_chosen(self, value: str | None) -> None:
+        if value:
+            path = resolve_path(self.config.cwd, value)
+            if path not in self._file_references:
+                self._file_references.append(path)
+            self.update_prompt_sources()
+        self.query_one(Composer).focus()
+
+    def update_prompt_sources(self) -> None:
+        self.query_one(PromptBar).update_sources(self._file_references, self._use_web)
+
+    @on(Button.Pressed, "#file-chip")
+    @on(Button.Pressed, "#web-chip")
+    def remove_prompt_source(self, event: Button.Pressed) -> None:
+        if event.button.id == "file-chip":
+            self._file_references.clear()
+        else:
+            self._use_web = False
+        self.update_prompt_sources()
+        self.query_one(Composer).focus()
 
     @on(OptionList.OptionSelected, "#commands")
     def complete_command(self) -> None:
@@ -324,6 +433,15 @@ class PostalApp(App[str | None]):
         if message.startswith("/"):
             await self.execute_command(message)
             return
+        if self._file_references:
+            message += "\n\nRead these referenced files as context:\n" + "\n".join(
+                f"- {path}" for path in self._file_references
+            )
+        if self._use_web:
+            message += "\n\nUse web search for this request and cite the sources you use."
+        self._file_references.clear()
+        self._use_web = False
+        self.update_prompt_sources()
         await self.append_block(MessageBlock("user", message), force_scroll=True)
         self.agent_views = AgentTree()
         self._tools = {}
@@ -336,8 +454,9 @@ class PostalApp(App[str | None]):
         if plan is not None and hasattr(plan, "reset"):
             plan.reset()
         self._turn_task = asyncio.create_task(self._run_turn(message), name="postal-turn")
+        self.refresh_prompt_controls()
 
-    async def execute_command(self, message: str, *, announce: bool = False) -> None:
+    async def execute_command(self, message: str, *, announce: bool = False, quiet: bool = False) -> None:
         if message.strip() in {"/exit", "/quit"}:
             await self.action_quit()
             return
@@ -358,7 +477,10 @@ class PostalApp(App[str | None]):
             self._context_tokens = 0
         output = capture.get().strip()
         if output:
-            await self.append_notice(output)
+            if quiet:
+                self.notify(output, timeout=3)
+            else:
+                await self.append_notice(output)
         self.refresh_live()
 
     async def append_block(self, block, *, force_scroll: bool = False) -> None:
@@ -484,6 +606,8 @@ class PostalApp(App[str | None]):
         children = [node for node in self.agent_views.nodes.values() if node.data.get("parent_agent_id")]
         active = sum(node.data.get("status") not in {"completed", "failed", "timed_out", "cancelled"} for node in children)
         parts = [self._status]
+        if not self.busy:
+            parts.append(self.config.approval.label)
         if self.busy:
             parts.append(f"{int(time.monotonic() - self._turn_started)}s")
         if children:
@@ -491,11 +615,11 @@ class PostalApp(App[str | None]):
         if total:
             parts.append(f"{total:,} tokens")
         self.query_one("#run-status", Static).update(" · ".join(parts))
-        model = self.config.model_name or "No model selected"
-        info = f"{model}  ·  {self.config.approval.label}"
         if self._context_tokens:
-            info += f"  ·  {self._context_tokens:,} context"
-        self.query_one("#model-line", Static).update(info)
+            self.query_one("#run-status").tooltip = f"{self._context_tokens:,} context tokens"
+        if self.config.model_name and self.config.model_name not in self._recent_models:
+            self._recent_models.append(self.config.model_name)
+        self.refresh_prompt_controls()
         hints = self.query_one("#key-hints", Static)
         hints.display = self.size.width >= 80
         hints.update(

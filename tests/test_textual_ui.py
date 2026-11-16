@@ -7,12 +7,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from prompt_toolkit.history import InMemoryHistory
-from textual.widgets import Collapsible, OptionList, Static
+from textual.widgets import Button, Collapsible, Input, OptionList, Static
 
 from client.llm_client import LLMClient
 from client.response import StreamEvent, StreamEventType, TextDelta, TokenUsage, ToolCall
 from config.config import Config
 from ui.components.logo import logo
+from ui.prompt_bar import PromptPicker
 from ui.textual_app import PostalApp
 from ui.textual_widgets import AgentsScreen, ApprovalScreen, Composer, MessageBlock, ToolBlock
 
@@ -63,7 +64,7 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
         async with self.running_app() as (app, pilot):
             composer = app.query_one("#composer", Composer)
             conversation = app.query_one("#conversation")
-            self.assertEqual(app.theme, "postal-mono")
+            self.assertEqual(app.theme, "postal-dark")
             self.assertIs(app.focused, composer)
             self.assertFalse(app.query_one("#commands").display)
             self.assertGreater(composer.region.y, conversation.region.y)
@@ -83,6 +84,8 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
                     self.assertLessEqual(abs(box.center[1] - size[1] / 2), 2)
                     self.assertLessEqual(abs(cloud.region.center[0] - box.center[0]), 1)
                     self.assertLessEqual(cloud.region.bottom, box.y)
+                    for selector in ("#prompt-add", "#prompt-model", "#prompt-effort", "#prompt-send"):
+                        self.assertTrue(box.contains_region(app.query_one(selector).region), selector)
                     self.assertFalse(app.query_one("#conversation").display)
                     self.assertLessEqual(app.query_one("#statusbar").region.bottom, size[1])
 
@@ -107,11 +110,11 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
             composer.move_cursor(composer.document.end)
             await pilot.pause()
             self.assertGreater(composer.scroll_y, 0)
-            self.assertLessEqual(composer.region.bottom, app.query_one("#model-line").region.y)
+            self.assertLessEqual(composer.region.bottom, app.query_one("#prompt-toolbar").region.y)
 
             await pilot.resize_terminal(100, 40)
             await pilot.pause()
-            self.assertLessEqual(composer.size.height, 8)
+            self.assertLessEqual(composer.content_size.height, 5)
             composer.clear()
             await pilot.pause()
             self.assertEqual(composer.size.height, initial_height)
@@ -141,9 +144,97 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
                     composer.move_cursor(composer.document.end)
                     await pilot.pause()
                     viewport = app.query_one("#main").content_region
-                    for selector in ("#composer-box", "#model-line", "#statusbar"):
+                    for selector in ("#composer-box", "#prompt-toolbar", "#statusbar"):
                         self.assertTrue(viewport.contains_region(app.query_one(selector).region))
                     self.assertTrue(composer.show_vertical_scrollbar)
+
+    async def test_prompt_settings_preserve_draft_and_home(self):
+        with patch("ui.repl.commands.settings.save_model_name") as save:
+            async with self.running_app() as (app, pilot):
+                composer = app.query_one(Composer)
+                composer.load_text("Keep my draft")
+                await pilot.pause()
+                await pilot.click("#prompt-model")
+                self.assertIsInstance(app.screen, PromptPicker)
+                app.screen.query_one(Input).value = "provider/another-model"
+                await pilot.press("enter")
+                await pilot.pause()
+                self.assertEqual(app.config.model_name, "provider/another-model")
+                save.assert_called_once_with("provider/another-model", cwd=self.cwd)
+                await pilot.click("#prompt-effort")
+                await pilot.press("down", "down", "down", "down", "enter")
+                await pilot.pause()
+                self.assertEqual(app.config.reasoning.to_request_payload(), {"effort": "high"})
+                self.assertEqual(composer.text, "Keep my draft")
+                self.assertTrue(app.query_one("#main").has_class("home"))
+                self.assertIs(app.focused, composer)
+                await pilot.click("#prompt-effort")
+                await pilot.press("escape")
+                self.assertNotIsInstance(app.screen, PromptPicker)
+
+    async def test_send_button_stops_active_response_and_keeps_next_draft(self):
+        cleaned = asyncio.Event()
+
+        async def stalled(client, messages, tools=None, stream=True):
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cleaned.set()
+            yield
+
+        async with self.running_app(stalled) as (app, pilot):
+            send = app.query_one("#prompt-send", Button)
+            composer = app.query_one(Composer)
+            self.assertTrue(send.disabled)
+            composer.load_text("Start working")
+            await pilot.pause()
+            self.assertFalse(send.disabled)
+            await pilot.click("#prompt-send")
+            await pilot.pause()
+            self.assertTrue(app.busy)
+            self.assertEqual(send.label.plain, "■")
+            self.assertTrue(app.query_one("#prompt-model").disabled)
+            composer.load_text("My next prompt")
+            await pilot.pause()
+            await pilot.click("#prompt-send")
+            await self.finish_turn(app, pilot)
+            self.assertTrue(cleaned.is_set())
+            self.assertEqual(composer.text, "My next prompt")
+            self.assertEqual(send.label.plain, "↑")
+            self.assertFalse(send.disabled)
+
+    async def test_file_and_web_sources_reach_next_prompt(self):
+        (self.cwd / "example.py").write_text("print('hello')\n")
+        received = []
+
+        async def completion(client, messages, tools=None, stream=True):
+            received.extend(message["content"] for message in messages if message["role"] == "user")
+            async for event in answer(client, messages):
+                yield event
+
+        async with self.running_app(completion) as (app, pilot):
+            composer = app.query_one(Composer)
+            composer.load_text("Review this")
+            await pilot.pause()
+            await pilot.click("#prompt-add")
+            await pilot.press("enter")
+            app.screen.query_one(Input).value = "missing.py"
+            await pilot.press("enter")
+            self.assertTrue(app.screen.query_one("#picker-error").display)
+            app.screen.query_one(Input).value = "example.py"
+            await pilot.press("enter")
+            await pilot.pause()
+            self.assertTrue(app.query_one("#file-chip").display)
+            await pilot.click("#prompt-add")
+            await pilot.press("down", "enter")
+            await pilot.pause()
+            self.assertTrue(app.query_one("#web-chip").display)
+            self.assertEqual(composer.text, "Review this")
+            await pilot.click("#prompt-send")
+            await self.finish_turn(app, pilot)
+            self.assertIn(str(self.cwd / "example.py"), received[0])
+            self.assertIn("Use web search", received[0])
+            self.assertFalse(app.query_one("#prompt-sources").display)
 
     async def test_multiline_input_and_history_preserve_newlines(self):
         async with self.running_app() as (app, pilot):

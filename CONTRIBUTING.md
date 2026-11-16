@@ -26,7 +26,7 @@ Keep PRs focused. Smaller, single-purpose PRs are easier to review and get merge
 
 ## UI Component-Based System
 
-The interactive interface uses Textual: orchestration is in `ui/textual_app.py`, widgets and dialogs in `ui/textual_widgets.py`, and layout/styles in `ui/postal.tcss`. Keep it monochrome and use `App.run_test()` with a Pilot for keyboard, modal, streaming, and shutdown regressions. `tests/test_textual_ui.py` provides examples with mocked model responses, so no API key is required.
+The interactive interface uses Textual: orchestration is in `ui/textual_app.py`, the prompt bar and its pickers in `ui/prompt_bar.py`, shared widgets and dialogs in `ui/textual_widgets.py`, and layout/styles in `ui/postal.tcss`. Use neutral charcoal surfaces with a restrained lavender accent for prompt controls. Use `App.run_test()` with a Pilot for keyboard, modal, streaming, and shutdown regressions. `tests/test_textual_ui.py` provides examples with mocked model responses, so no API key is required.
 
 Postal uses a component-based UI system where each visual element is a separate, reusable component. This design makes it easier to:
 

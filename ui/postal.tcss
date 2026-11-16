@@ -14,7 +14,7 @@ Screen {
 #workspace { width: 1fr; text-align: right; color: #737373; height: 1; }
 #main { height: 1fr; align-horizontal: center; }
 #prompt-area { height: auto; }
-#main.home #prompt-area, #main.home #welcome, #main.home #home-spacer { max-width: 80; }
+#main.home #prompt-area, #main.home #welcome, #main.home #home-spacer { max-width: 72; }
 #main.home #conversation { display: none; }
 #home-spacer { display: none; height: 1fr; }
 #main.home #home-spacer { display: block; }
@@ -42,24 +42,51 @@ Screen {
 .user { border-left: solid #474747; padding-left: 2; }
 .user .message-label { color: #b8b8b8; }
 .notice { height: auto; color: #a8a8a8; margin: 1 0; }
-#composer-box { height: auto; background: #191919; border: round #474747; padding: 0 1; margin-top: 1; }
-#composer-box:focus-within { border: round #898989; }
+#composer-box { height: auto; background: #27272a; border: round #45454a; padding: 0 2; margin-top: 1; }
+#composer-box:focus-within { border: round #797383; }
 #main.home #composer-box { margin-top: 0; }
 #composer {
     height: 3;
     min-height: 3;
-    max-height: 8;
+    max-height: 6;
     padding: 1 0 0 0;
     border: none;
-    background: #191919;
-    color: #e2e2e2;
+    background: #27272a;
+    color: #f5f5f5;
     scrollbar-size: 1 1;
 }
 #composer:focus { border: none; }
-#composer .text-area--cursor { background: #dedede; color: #101010; }
-#composer .text-area--selection { background: #464646; }
-#composer .text-area--placeholder { color: #767676; }
-#model-line { height: 1; color: #858585; text-wrap: nowrap; text-overflow: ellipsis; }
+#composer .text-area--cursor { background: #b39dff; color: #27272a; }
+#composer .text-area--selection { background: #514760; }
+#composer .text-area--placeholder { color: #a1a1aa; }
+#prompt-toolbar, #prompt-sources { height: 1; }
+#prompt-spacer { width: 1fr; }
+#composer-box Button {
+    height: 1;
+    min-width: 3;
+    width: auto;
+    margin: 0;
+    padding: 0 1;
+    border: none;
+    background: #27272a;
+    color: #d4d4d8;
+    text-style: none;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+#composer-box Button:hover, #composer-box Button:focus { background: #3f3f46; color: #f5f5f5; }
+#composer-box Button.-active { background: #55505e; }
+#composer-box Button:disabled { color: #71717a; background: #27272a; opacity: 100%; }
+#composer-box #prompt-add { width: 3; color: #f5f5f5; }
+#composer-box #prompt-model { max-width: 28; min-width: 8; }
+#composer-box #prompt-effort { max-width: 11; margin-left: 1; }
+#composer-box #prompt-send { width: 3; margin-left: 1; background: #b39dff; color: #242126; text-style: bold; }
+#composer-box #prompt-send:disabled { background: #3f3f46; color: #a1a1aa; }
+#composer-box #prompt-send:hover, #composer-box #prompt-send:focus { background: #d3c6ff; color: #242126; }
+#composer-box #prompt-send.busy { background: #f5f5f5; color: #27272a; }
+#composer-box #file-chip, #composer-box #web-chip { max-width: 50%; margin-right: 1; background: #3c3747; color: #d9ccff; }
+#shell.narrow #composer-box { padding: 0 1; }
+#shell.narrow #prompt-model { width: 1fr; }
 #statusbar { height: 1; margin-top: 1; }
 #run-status { width: 1fr; height: 1; color: #929292; }
 #key-hints { width: auto; max-width: 48; height: 1; text-align: right; color: #686868; }
@@ -76,13 +103,24 @@ Screen {
 #commands {
     height: auto;
     max-height: 8;
-    background: #202020;
+    background: #323236;
     border: none;
     padding: 0 1;
     color: #bcbcbc;
 }
-OptionList > .option-list--option-highlighted { background: #383838; color: #eeeeee; }
-OptionList:focus > .option-list--option-highlighted { background: #383838; color: #eeeeee; }
+OptionList > .option-list--option-highlighted { background: #49434f; color: #f5f5f5; }
+OptionList:focus > .option-list--option-highlighted { background: #49434f; color: #f5f5f5; }
+PromptPicker { align: center middle; background: #101010 60%; }
+#picker-dialog { width: 64; max-width: 90%; height: auto; max-height: 90%; padding: 1 2; background: #323236; border: round #625a70; }
+#picker-title { height: 1; margin-bottom: 1; color: #f5f5f5; text-style: bold; }
+#picker-input { height: 3; margin-bottom: 1; background: #27272a; border: round #797383; color: #f5f5f5; }
+#picker-input:focus { border: round #b39dff; }
+#picker-options { height: auto; max-height: 6; border: none; padding: 0; background: #323236; color: #f5f5f5; }
+#picker-hint { height: 1; margin-top: 1; color: #a1a1aa; }
+#picker-error { height: auto; color: #e4c5c5; }
+PromptPicker.compact #picker-dialog { padding: 0 1; }
+PromptPicker.compact #picker-title, PromptPicker.compact #picker-input { margin-bottom: 0; }
+PromptPicker.compact #picker-options { max-height: 3; }
 .tool-block, .reasoning-block {
     border: none;
     padding: 0;
