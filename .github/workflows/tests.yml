@@ -60,4 +60,4 @@ jobs:
       - name: Build
         run: npm run build
       - name: Fail if the committed bundle is stale
-        run: test -z "$(git status --porcelain ui/terminal_bundle)"
+        run: test -z "$(git status --porcelain ../terminal_bundle)"

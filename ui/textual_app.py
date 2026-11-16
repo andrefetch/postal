@@ -331,16 +331,20 @@ class PostalApp(App[str | None]):
             await self.execute_command(f"/thinking {value}", quiet=True)
         self.query_one(Composer).focus()
 
+    def context_choices(self) -> list[tuple[str, str, str]]:
+        choices = []
+        available = {tool.name for tool in self.agent.session.tool_registry.get_tools()}
+        if "read" in available:
+            choices.append(("files", "Add a file", "Reference a text or code file"))
+        if "search" in available:
+            choices.append(("web", "Web search", "Use live results for this prompt"))
+        choices.append(("commands", "Commands", "Browse slash commands"))
+        return choices
+
     @on(Button.Pressed, "#prompt-add")
     def choose_context(self) -> None:
         self.show_commands(False)
-        choices = []
-        if self.agent.session.tool_registry.get("read"):
-            choices.append(("files", "Add a file", "Reference a text or code file"))
-        if self.agent.session.tool_registry.get("search"):
-            choices.append(("web", "Web search", "Use live results for this prompt"))
-        choices.append(("commands", "Commands", "Browse slash commands"))
-        self.push_screen(PromptPicker("Add to your prompt", choices), self.context_chosen)
+        self.push_screen(PromptPicker("Add to your prompt", self.context_choices()), self.context_chosen)
 
     def context_chosen(self, value: str | None) -> None:
         if value == "files":
@@ -457,9 +461,6 @@ class PostalApp(App[str | None]):
         self.refresh_prompt_controls()
 
     async def execute_command(self, message: str, *, announce: bool = False, quiet: bool = False) -> None:
-        if message.strip() in {"/exit", "/quit"}:
-            await self.action_quit()
-            return
         if message.strip() == "/agents":
             self.action_agents()
             return
@@ -468,7 +469,9 @@ class PostalApp(App[str | None]):
             if announce and self.agent.resumed is not None:
                 self.commands.announce_resume(self.agent)
             else:
-                await self.commands.execute(self.agent, message)
+                if not await self.commands.execute(self.agent, message):
+                    await self.action_quit()
+                    return
         if self.command_console.cleared:
             await self.query_one("#conversation", VerticalScroll).remove_children()
             self.command_console.cleared = False

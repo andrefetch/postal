@@ -18,6 +18,26 @@ from ui.textual_app import PostalApp
 from ui.textual_widgets import AgentsScreen, ApprovalScreen, Composer, MessageBlock, ToolBlock
 
 
+class ToolBlockTests(unittest.TestCase):
+    def test_long_result_flags_omitted_content(self) -> None:
+        tool = ToolBlock("bash", {"command": "cat big.txt"})
+        tool.complete({"success": True, "output": "x" * 60_000})
+
+        self.assertEqual(tool.output.count("x"), ToolBlock.MAX_OUTPUT_CHARS)
+        self.assertEqual(tool.omitted_chars, 12_000)
+        self.assertEqual(tool.tool_truncated, False)
+
+    def test_tool_truncation_warning_is_preserved(self) -> None:
+        tool = ToolBlock("read", {"path": "big.txt"})
+        tool.complete({"success": True, "output": "short", "truncated": True})
+
+        self.assertNotIn("characters omitted", tool.output)
+        self.assertEqual(tool.output, "short")
+        self.assertEqual(tool.tool_truncated, True)
+        self.assertIn("tool truncated this result", tool._display_output())
+        self.assertNotIn("characters were omitted", tool._display_output())
+
+
 async def answer(client, messages, tools=None, stream=True):
     yield StreamEvent(StreamEventType.REASONING_DELTA, reasoning_delta="Inspecting the request.")
     yield StreamEvent(StreamEventType.TEXT_DELTA, text_delta=TextDelta("A **streamed** response."))
@@ -263,6 +283,11 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(app.query_one("#conversation").display)
             self.assertGreater(app.query_one("#composer").region.y, app.size.height / 2)
 
+    async def test_context_menu_hides_unavailable_tools(self):
+        self.config.allowed_tools = []
+        async with self.running_app() as (app, pilot):
+            self.assertEqual({choice[0] for choice in app.context_choices()}, {"commands"})
+
     async def test_command_completion_help_and_clear(self):
         async with self.running_app() as (app, pilot):
             app.query_one("#composer", Composer).load_text("/he")
@@ -361,6 +386,12 @@ class TextualUITests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(entered.wait(), 1)
             await asyncio.wait_for(pilot.press("ctrl+q"), 3)
             self.assertTrue(cleaned.is_set())
+
+    async def test_exit_command_quits_for_every_dispatcher_alias(self):
+        async with self.running_app() as (app, pilot):
+            await self.submit(app, pilot, "/EXIT")
+            await pilot.pause()
+            self.assertTrue(app._shutting_down)
 
     async def test_quit_while_approval_is_open(self):
         async def completion(client, messages, tools=None, stream=True):

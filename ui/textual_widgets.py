@@ -7,6 +7,7 @@ from rich.markdown import Markdown
 from rich.markup import escape
 from rich.text import Text
 from textual import events, on
+from textual._context import NoActiveAppError
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -98,11 +99,16 @@ class MessageBlock(Vertical):
 
 
 class ToolBlock(Collapsible):
+    MAX_OUTPUT_CHARS = 48_000
+    MAX_PROGRESS_CHARS = 12_000
+
     def __init__(self, name: str, arguments: dict):
         self.tool_name = name
         self.arguments = arguments
         self.started_at = time.monotonic()
         self.output = ""
+        self.tool_truncated = False
+        self.omitted_chars = 0
         self.state = "running"
         self.details = Static(markup=False, classes="tool-details")
         super().__init__(
@@ -118,11 +124,26 @@ class ToolBlock(Collapsible):
         return escape(f"{icon} {self.tool_name}" + (f"  {detail}" if detail else ""))
 
     def progress(self, text: str) -> None:
-        self.output = (self.output + text)[-12000:]
+        self._streaming = (getattr(self, "_streaming", "") + text)[-self.MAX_PROGRESS_CHARS:]
+
+    def _display_output(self) -> str:
+        arguments = json.dumps(self.arguments, indent=2, ensure_ascii=False)
+        output = getattr(self, "_streaming", "") or self.output
+        body = arguments + ("\n\n" + output if output else "")
+        if self.omitted_chars:
+            body += (
+                f"\n\n[Earlier output is not shown; {self.omitted_chars:,} "
+                "characters were omitted from the beginning.]"
+            )
+        if self.tool_truncated:
+            body += "\n\n[The tool truncated this result; its beginning is missing.]"
+        return body
 
     def refresh_details(self) -> None:
-        arguments = json.dumps(self.arguments, indent=2, ensure_ascii=False)
-        self.details.update(Text(arguments + ("\n\n" + self.output if self.output else "")))
+        try:
+            self.details.update(Text(self._display_output()))
+        except NoActiveAppError:
+            pass
 
     @on(Collapsible.Expanded)
     def show_output(self) -> None:
@@ -130,9 +151,13 @@ class ToolBlock(Collapsible):
 
     def complete(self, data: dict) -> None:
         self.state = "completed" if data.get("success") else "failed"
-        self.output = "\n\n".join(str(part) for part in (
+        self._streaming = ""
+        output = "\n\n".join(str(part) for part in (
             data.get("error"), data.get("diff"), data.get("output"),
-        ) if part)[-48000:]
+        ) if part)
+        self.output = output[-self.MAX_OUTPUT_CHARS:]
+        self.omitted_chars = max(0, len(output) - self.MAX_OUTPUT_CHARS)
+        self.tool_truncated = bool(data.get("truncated"))
         self.title = f"{self._tool_title()}  {time.monotonic() - self.started_at:.1f}s"
         self.refresh_details()
         if self.state == "failed":

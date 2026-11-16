@@ -200,7 +200,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       if (menu.kind === 'agents' && input === 'c') { const agent = agents[selected]; if (agent?.parent_agent_id) void request('cancel_agent', {agentId: agent.agent_id}); return; }
       if (key.upArrow || key.downArrow) { setMenu({...menu, index: Math.max(0, Math.min(choices.length - 1, selected + (key.upArrow ? -1 : 1))), scroll: 0}); return; }
       if (key.pageUp || key.pageDown) { setMenu({...menu, scroll: Math.max(0, menu.scroll + (key.pageUp ? -5 : 5))}); return; }
-      if (key.return) { void choose(choices[selected]); return; }
+      if (key.return || (key.tab && menu.kind === 'commands')) { void choose(choices[selected]); return; }
       if (['model', 'file', 'commands'].includes(menu.kind)) setMenu({...menu, input: edit(menu.input, input, key, columns - 12), index: 0, error: undefined});
       return;
     }

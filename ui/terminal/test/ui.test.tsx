@@ -106,6 +106,7 @@ test('model picker keeps the draft and command completion is keyboard accessible
   app.stdin.write('\x10');
   await until(() => app.lastFrame()?.includes('Commands') ?? false);
   app.stdin.write('he'); await delay(20);
-  app.stdin.write('\r');
+  app.stdin.write('\t');
   await until(() => app.lastFrame()?.includes('/help ') ?? false);
+  app.stdin.write('\x1b');
 });
