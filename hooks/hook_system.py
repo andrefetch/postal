@@ -51,12 +51,17 @@ class HookSystem:
 
         try:
             await asyncio.wait_for(process.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            if sys.platform != "win32":
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            else:
-                process.kill()
+        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
+            try:
+                if sys.platform != "win32":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+            except ProcessLookupError:
+                pass
             await process.wait()
+            if isinstance(exc, asyncio.CancelledError):
+                raise
 
     def _build_env(
         self,

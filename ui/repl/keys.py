@@ -107,6 +107,8 @@ def turn_keys(tui: TUI, task: asyncio.Task):
         for key_press in device.read_keys():
             if tui.feed_confirmation_key(key_press):
                 continue
+            if tui.feed_agent_key(key_press):
+                continue
             if key_press.key == Keys.ControlO:
                 tui.toggle_expansion()
             elif key_press.key == Keys.ControlC:

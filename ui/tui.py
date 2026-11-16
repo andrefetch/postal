@@ -16,6 +16,8 @@ from rich.text import Text
 
 from config.config import ApprovalPolicy, Config
 from tools.base import ToolConfirmation
+from agent.events import AgentEvent, AgentEventType
+from ui.components.agent_tree import AgentTree
 from ui.components import (
     APPROVE_KEYS,
     REASONING_LABEL,
@@ -84,6 +86,9 @@ class TUI:
         # answered through its key reader instead of opening a second one.
         self.external_keys = False
         self._pending_confirmation: asyncio.Future[bool] | None = None
+        self.agent_tree = AgentTree()
+        self._agent_runtime = None
+        self._agent_controls: set[asyncio.Task] = set()
 
     @property
     def approval_policy(self) -> ApprovalPolicy:
@@ -114,11 +119,58 @@ class TUI:
         self._at_gap = False
 
     def _live_group(self, line: Text) -> Any:
-
+        blocks = [Text("")]
+        if self.agent_tree.visible:
+            blocks.append(self.agent_tree.render())
         expansion = self.expansion_renderable()
         if expansion is not None:
-            return Group(Text(""), expansion, line)
-        return Group(Text(""), line)
+            blocks.append(expansion)
+        blocks.append(line)
+        return Group(*blocks)
+
+    def begin_agent_turn(self, runtime) -> None:
+        self.agent_tree = AgentTree()
+        self._agent_runtime = runtime
+
+    def agent_event(self, event: AgentEvent) -> None:
+        self.agent_tree.update(event)
+        if self.agent_tree.visible and not self._spinner.running and not self.awaiting_confirmation:
+            self._spinner.start(lambda: self._live_group(Text("")))
+
+    def feed_agent_key(self, key_press: Any) -> bool:
+        if not self.agent_tree.visible or self._agent_runtime is None:
+            return False
+        if key_press.key == Keys.Up:
+            self.agent_tree.move(-1)
+        elif key_press.key == Keys.Down:
+            self.agent_tree.move(1)
+        elif key_press.key in (Keys.ControlM, Keys.ControlJ):
+            self.agent_tree.toggle_selected()
+        elif (key_press.data or "").lower() == "c":
+            selected = self.agent_tree.selected
+            if selected is not None:
+                task = asyncio.create_task(self._agent_runtime.cancel(self._agent_runtime.root_id, selected))
+                self._agent_controls.add(task)
+                task.add_done_callback(self._agent_controls.discard)
+        else:
+            return False
+        return True
+
+    async def finish_agent_turn(self) -> None:
+        if self._agent_controls:
+            await asyncio.gather(*self._agent_controls, return_exceptions=True)
+        runtime = self._agent_runtime
+        self._agent_runtime = None
+        if runtime is not None:
+            for record in runtime.records.values():
+                self.agent_tree.update(AgentEvent(
+                    AgentEventType.AGENT_STATUS, record.snapshot(),
+                    record.agent_id, record.parent_agent_id,
+                ))
+        self._spinner.stop()
+        if self.agent_tree.visible:
+            self.gap()
+            self.print_block(self.agent_tree.render(interactive=False))
 
     def _thinking_renderable(self) -> Any:
         line = Text.assemble((f"{self._spinner.char()} ", "tool"))
@@ -157,7 +209,7 @@ class TUI:
         line.append_text(shimmer(REASONING_LABEL, self._spinner.frame))
         elapsed = int(time.monotonic() - self._reasoning_started_at)
         line.append(f" ({elapsed}s)", style="muted")
-        return line
+        return self._live_group(line)
 
     def begin_reasoning(self) -> None:
         if not self.show_reasoning or self._reasoning_stream_open:
@@ -205,6 +257,8 @@ class TUI:
         self.gap()
         self._assistant_markdown = MarkdownStream(self._print_assistant_block)
         self._assistant_stream_open = True
+        if self.agent_tree.visible:
+            self._spinner.start(lambda: self._live_group(Text("")))
 
     def end_assistant(self) -> None:
         if self._assistant_markdown is not None:

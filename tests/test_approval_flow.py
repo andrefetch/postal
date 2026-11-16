@@ -84,7 +84,7 @@ class SubagentApprovalTests(unittest.IsolatedAsyncioTestCase):
             return True
 
         class FakeAgent:
-            def __init__(self, config, confirmation_callback=None):
+            def __init__(self, config, confirmation_callback=None, **kwargs):
                 captured["confirmation_callback"] = confirmation_callback
 
             async def __aenter__(self):
@@ -133,7 +133,7 @@ class SubagentApprovalTests(unittest.IsolatedAsyncioTestCase):
         captured: dict[str, Any] = {}
 
         class FakeAgent:
-            def __init__(self, config, confirmation_callback=None):
+            def __init__(self, config, confirmation_callback=None, **kwargs):
                 captured["confirmation_callback"] = confirmation_callback
 
             async def __aenter__(self):

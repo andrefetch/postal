@@ -278,6 +278,18 @@ def _memory(outcome: ToolOutcome) -> Blocks:
     return summary, []
 
 
+def _agents(outcome: ToolOutcome) -> Blocks:
+    agents = outcome.metadata.get("agents", [])
+    summary = [
+        Text(
+            f"{agent['name']} [{agent['agent_id']}] · {agent['status'].replace('_', ' ')}",
+            style="warning" if agent["status"] in {"failed", "timed_out", "cancelled"} else "muted",
+        )
+        for agent in agents
+    ]
+    return summary or [Text("No delegated agents", style="muted")], [outcome.output_block("json")]
+
+
 def _failure(outcome: ToolOutcome) -> Blocks:
     summary: list[Any] = [Text(outcome.error or "Tool failed", style="error")]
     details: list[Any] = []
@@ -312,6 +324,10 @@ RENDERERS: dict[str, Callable[[ToolOutcome], Blocks]] = {
     "fetch": _fetch,
     "plan": _plan,
     "memory": _memory,
+    "spawn_agent": _agents,
+    "wait_agents": _agents,
+    "list_agents": _agents,
+    "cancel_agent": _agents,
 }
 
 # These two render their arguments themselves, in prettier form.

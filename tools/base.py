@@ -5,7 +5,10 @@ from pydantic import BaseModel, ValidationError
 from pydantic.json_schema import model_json_schema
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    from agent.runtime import AgentRuntime
 
 from config.config import Config
 
@@ -116,6 +119,8 @@ class ToolInvocation:
     # agents (subagents) keep routing approvals through the user.
     confirmation_callback: Callable[['ToolConfirmation'], Awaitable[bool]] | None = None
     progress_callback: Callable[[str], None] | None = None
+    runtime: AgentRuntime | None = None
+    agent_id: str | None = None
 
     def report_progress(self, chunk: str) -> None:
         if self.progress_callback is None:

@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -6,7 +5,7 @@ from pydantic import BaseModel, Field
 from config import Config
 from dataclasses import dataclass
 from tools import Tool, ToolInvocation
-from tools.base import ToolConfirmation, ToolResult, ToolKind
+from tools.base import ToolResult, ToolKind
 
 class SubagentParams(BaseModel):
     goal: str = Field(
@@ -41,141 +40,49 @@ class SubAgentTool(Tool):
     kind = ToolKind.SUBAGENT
 
     def is_mutating(self, params: dict[str, Any]) -> bool:
-        return True
+        # Delegation itself has no side effects. Every child tool is checked.
+        return False
 
     def subagent_config(self) -> Config:
-        """The parent config, narrowed to what this sub-agent may do."""
-
         config_dict = self.config.to_dict()
         config_dict['max_turns'] = self.definition.max_turns
-        if self.definition.allowed_tools:
-            config_dict['allowed_tools'] = self.definition.allowed_tools
-
-        # A sub-agent run belongs to the turn that spawned it, not in the
-        # user's session list, so it is never checkpointed.
+        allowed = self.definition.allowed_tools
+        if allowed is not None:
+            controls = {'spawn_agent', 'wait_agents', 'list_agents', 'cancel_agent'}
+            controls.update(f'subagent_{d.name}' for d in get_default_subagent_definitions())
+            allowed = set(allowed) | controls
+        if self.config.allowed_tools is not None:
+            inherited = set(self.config.allowed_tools)
+            allowed = inherited if allowed is None else allowed & inherited
+        config_dict['allowed_tools'] = sorted(allowed) if allowed is not None else None
         config_dict['session'] = {'enabled': False}
-
         return Config(**config_dict)
 
     async def execute(self, invocation: ToolInvocation) -> ToolResult:
+        from agent.runtime import AgentRuntime
 
-        from agent.agent import Agent
-        from agent.events import AgentEventType
-        
         params = SubagentParams(**invocation.params)
-
-        if not params.goal:
-            return ToolResult.error_result(
-                'No goal or task was specified for a subagent'
-            )
-        
-        subagent_config = self.subagent_config()
-
-        prompt = f"""
-
-        You are a specialized sub-agent with a specific task to complete.
-
-        The prompt is: {self.definition.goal_prompt}
-
-        Your Task/Goal is TO: 
-        {params.goal}
-
-        IMPORTANT CRITERIA:
-        - Focus only on completing that specific task, don't wander or astray from it.
-        - Do not engage in unrelated actions that are not pertinent to the task.
-        - Once you have completed the task, goal, or have an answer for the user, display and provide your final response to the user.
-        - Be concise and direct in your output.
-
-        """
-
-        tool_calls = []
-        final_response = None
-        error = None
-        terminate_response = 'goal'
-
-        # Route the subagent's approvals through the parent session's
-        # confirmation callback so nested tool calls cannot bypass the
-        # approval flow. The description is prefixed so the user can see
-        # which subagent is asking.
-        parent_callback = invocation.confirmation_callback
-        subagent_callback = None
-        if parent_callback is not None:
-            subagent_name = self.definition.name
-
-            async def subagent_callback(confirmation: ToolConfirmation) -> bool:
-                confirmation.description = (
-                    f"[subagent: {subagent_name}] {confirmation.description}"
-                )
-                return await parent_callback(confirmation)
-
+        runtime = invocation.runtime
+        standalone = runtime is None
+        if standalone:
+            runtime = AgentRuntime(self.config, invocation.confirmation_callback)
+            runtime.begin_turn(params.goal)
+        parent_id = invocation.agent_id or runtime.root_id
         try:
-            subagent_name = self.definition.name
-
-            def report_subagent_progress(chunk: str) -> None:
-                lines = chunk.splitlines() or [chunk]
-                for line in lines:
-                    if line.strip():
-                        invocation.report_progress(f"{subagent_name} › {line}")
-
-            async with Agent(
-                subagent_config,
-                confirmation_callback=subagent_callback,
-            ) as agent:
-                agent.progress_callback = report_subagent_progress
-                invocation.report_progress(f"{subagent_name} › starting")
-                timeout = asyncio.get_event_loop().time() + self.definition.timeout_seconds
-                async for event in agent.run(prompt):
-                    if asyncio.get_event_loop().time() > timeout:
-                        terminate_response = 'timeout'
-                        final_response = 'Sub-agent timed out'
-                        invocation.report_progress(f"{subagent_name} › timed out")
-                        break
-
-                    if event.type == AgentEventType.TOOL_CALL_START:
-                        tool_name = event.data.get('name', 'unknown')
-                        tool_calls.append(tool_name)
-                        invocation.report_progress(f"{subagent_name} › running {tool_name}")
-                    elif event.type == AgentEventType.TOOL_CALL_COMPLETE:
-                        tool_name = event.data.get('name', 'unknown')
-                        status = "completed" if event.data.get("success") else "failed"
-                        invocation.report_progress(
-                            f"{subagent_name} › {status} {tool_name}"
-                        )
-                    elif event.type == AgentEventType.TEXT_COMPLETE:
-                        final_response = event.data.get('content')
-                    elif event.type == AgentEventType.AGENT_END:
-                        if final_response is None:
-                            final_response = event.data.get('response')
-                    elif event.type == AgentEventType.AGENT_ERROR:
-                        terminate_response = 'error'
-                        error = event.data.get('error', 'Unknown')
-                        final_response = f"Sub-agent error: {error}"
-                        invocation.report_progress(f"{subagent_name} › failed")
-                        break
-        except Exception as e:
-            terminate_response = 'error'
-            error = str(e)
-            final_response = f"Sub-agent failed: {e}"
-            invocation.report_progress(f"{self.definition.name} › failed")
-        
-        result = f"""Sub-agent '{self.definition.name}' completed.
-
-        Termination: {terminate_response}
-        Tools called: {', '.join(tool_calls) if tool_calls else 'None'}
-
-        Result: 
-        {final_response or 'No response'}
-
-        """
-
-        if error:
-            return ToolResult.error_result(
-                result
+            record = runtime.spawn(parent_id, self.config, self.definition, params.goal)
+            await runtime.wait(parent_id, [record.agent_id])
+            output = (
+                f"Sub-agent '{record.name}' ({record.agent_id}): {record.status}\n\n"
+                f"{record.result or record.error or 'No response'}"
             )
-        
-        return ToolResult.success_result(
-            result
-        )
+            if record.status != 'completed':
+                return ToolResult.error_result(output)
+            return ToolResult.success_result(output)
+        except ValueError as exc:
+            return ToolResult.error_result(str(exc))
+        finally:
+            if standalone:
+                await runtime.cancel_descendants(parent_id)
 
 CODEBASE_INVESTIGATOR = SubagentDefinition(
 
@@ -306,10 +213,17 @@ DEBUGGER = SubagentDefinition(
 
 )
 
-# Will add more subagent definitions
+GENERAL = SubagentDefinition(
+    name='general',
+    description='Completes a delegated task using any tools permitted by its parent, including MCP and custom tools.',
+    goal_prompt='Use the tools permitted by your parent to complete the task. Delegate independent subtasks when useful.',
+)
+
+# The general role inherits the parent tool set; specialized roles narrow it.
 
 def get_default_subagent_definitions() -> list[SubagentDefinition]:
     return [
+        GENERAL,
         CODEBASE_INVESTIGATOR,
         CODE_REVIEWER,
         SOFTWARE_ARCHITECT,

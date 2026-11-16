@@ -162,13 +162,19 @@ class BashTool(Tool):
                 asyncio.gather(pumps, process.wait()),
                 timeout = params.timeout
             )
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
             pumps.cancel()
-            if sys.platform != 'win32':
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            else:
-                process.kill()
+            try:
+                if sys.platform != 'win32':
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+            except ProcessLookupError:
+                pass
             await process.wait()
+            await asyncio.gather(pumps, return_exceptions=True)
+            if isinstance(exc, asyncio.CancelledError):
+                raise
             return ToolResult.error_result(
                 f'Command timed out after: {params.timeout}'
             )

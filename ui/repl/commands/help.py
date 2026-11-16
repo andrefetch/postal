@@ -17,6 +17,7 @@ HELP_TEXT = """\
 - `/thinking [on|off|low|medium|high]` - Show or configure model reasoning (e.g. `/thinking high`)
 - `/stats` - Show session statistics (token counts, time elapsed, tool calls)
 - `/tools` - List available tools the agent can use
+- `/agents [id]` - Show the last turn's agent tree or an agent's full result
 - `/mcp` - Show connected MCP server status
 
 ## Sessions
@@ -34,6 +35,7 @@ HELP_TEXT = """\
 - Type `/` to see every command and keep typing to filter them; `↑`/`↓` to pick, `Enter` to run, `Tab` to fill in
 - The agent can read, write, and execute code
 - Some operations require approval (can be configured)
+- In the live agent tree, `↑`/`↓` select, `Enter` expands details, and `c` cancels the selected subtree
 - Sessions are saved after every turn; `postal --resume` picks the last one up
 """
 
