@@ -10,7 +10,16 @@ import {initialState} from '../src/state.js';
 import type {ServerMessage, Settings, Transport} from '../src/protocol.js';
 
 afterEach(cleanup);
-const settings: Settings = {model: 'provider/a-very-long-model-name', cwd: '/workspace/postal', approval: 'on_request',
+// ApprovalPolicy values sent by the picker, labels returned by Python, and UI text.
+const approvalModes = [
+  ['on_request', 'ask', 'Ask'],
+  ['on_fail', 'on fail', 'On fail'],
+  ['auto', 'auto', 'Auto'],
+  ['auto_edit', 'auto-edit', 'Auto-edit'],
+  ['never', 'read-only', 'Read-only'],
+  ['yolo', 'yolo', 'Yolo'],
+] as const;
+const settings: Settings = {model: 'provider/a-very-long-model-name', cwd: '/workspace/postal', approval: 'ask',
   reasoning: {enabled: true, visible: true, effort: 'minimal', max_tokens: null}};
 class Backend implements Transport {
   requests: {method: string; params: Record<string, unknown>}[] = [];
@@ -27,7 +36,7 @@ class Backend implements Transport {
     if (method === 'submit') this.emit({type: 'turn_start', text: String(params.text), files: [], web: false});
     if (method === 'cancel') this.emit({type: 'turn_end', status: 'Interrupted'});
     if (method === 'model') this.emit({type: 'settings', settings: {...settings, model: String(params.model)}});
-    if (method === 'approval') this.emit({type: 'settings', settings: {...settings, approval: String(params.mode)}});
+    if (method === 'approval') this.emit({type: 'settings', settings: {...settings, approval: approvalModes.find(([mode]) => mode === params.mode)![1]}});
     return (method === 'file' ? {path: '/workspace/postal/app.py'} : {}) as T;
   }
   async close() {}
@@ -50,7 +59,7 @@ test('centered home and prompt controls fit narrow, short, and wide terminals', 
       assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
       assert.ok(frame.includes('Ask anything'));
       assert.ok(!frame.includes('↑'));
-      assert.ok(frame.includes('Ready · on_request'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
+      assert.ok(frame.includes('Ready · ask'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
       if (files.length) assert.ok(frame.includes('app.py ×'));
       if (web) assert.ok(frame.includes('Web ×'));
       for (const row of initialState.logo.slice(Math.max(0, initialState.logo.length - dimensions.welcome))) assert.ok(frame.includes(row.trim()), 'cloud is clipped');
@@ -293,7 +302,24 @@ test('successful tools compact into groups and all detail shortcuts preserve the
   assert.ok(app.lastFrame()?.includes('keep my draft'));
 });
 
-test('approval picker sends the selected mode and command completion is keyboard accessible', async () => {
+for (const [index, [mode, label, display]] of approvalModes.entries()) {
+  test(`approval picker displays Python's ${label} label after selecting ${mode}`, async () => {
+    const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
+    await until(() => app.lastFrame()?.includes('Ask ▾') ?? false);
+    for (let tab = 0; tab < 3; tab++) { app.stdin.write('\t'); await delay(20); }
+    app.stdin.write('\r');
+    await until(() => app.lastFrame()?.includes('Choose an approval mode') ?? false);
+    for (let down = 0; down < index; down++) { app.stdin.write('\x1b[B'); await delay(20); }
+    app.stdin.write('\r');
+    await until(() => backend.requests.some(request => request.method === 'approval'));
+    assert.deepEqual(backend.requests.find(request => request.method === 'approval')!.params, {mode});
+    await until(() => !app.lastFrame()?.includes('Choose an approval mode'));
+    await until(() => app.lastFrame()?.includes(`${display} ▾`) ?? false);
+    assert.ok(app.lastFrame()?.includes(`Ready · ${label}`));
+  });
+}
+
+test('approval picker preserves the draft and command completion is keyboard accessible', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   app.stdin.write('keep my draft');

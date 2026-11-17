@@ -57,8 +57,8 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
   const inner = width - 6, narrow = width < 55;
   const effort = !state.settings.reasoning.enabled ? 'Off' : state.settings.reasoning.max_tokens ? 'Custom' : state.settings.reasoning.effort ?? 'Auto';
   const model = state.settings.model.split('/').at(-1) || 'Choose model';
-  const mode = state.settings.approval || 'on_request';
-  const approval = {on_request: 'Ask', on_fail: 'On fail', auto: 'Auto', auto_edit: 'Auto-edit', never: 'Read-only', yolo: 'Yolo'}[mode] ?? 'Ask';
+  const mode = state.settings.approval || 'ask';
+  const approval = {ask: 'Ask', 'on fail': 'On fail', auto: 'Auto', 'auto-edit': 'Auto-edit', 'read-only': 'Read-only', yolo: 'Yolo'}[mode] ?? 'Ask';
   const modelWidth = Math.max(6, Math.min(narrow ? 14 : 28, inner - 32));
   const disabled = !state.ready || state.busy || sending;
   return <Box width={width} flexDirection="column" paddingX={2} paddingY={padding} borderStyle="round"

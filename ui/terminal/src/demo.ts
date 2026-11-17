@@ -4,7 +4,7 @@ import type {ServerMessage, Settings, Transport} from './protocol.js';
 export class DemoBackend implements Transport {
   private listeners = new Set<(message: ServerMessage) => void>();
   private timers: ReturnType<typeof setTimeout>[] = [];
-  private settings: Settings = {model: 'demo/model', cwd: '~/workspace', approval: 'on_request',
+  private settings: Settings = {model: 'demo/model', cwd: '~/workspace', approval: 'ask',
     reasoning: {enabled: true, visible: true, effort: 'medium', max_tokens: null}};
   private emit(message: ServerMessage) { for (const listener of this.listeners) listener(message); }
   subscribe(listener: (message: ServerMessage) => void) {
@@ -17,7 +17,9 @@ export class DemoBackend implements Transport {
   async request<T = Record<string, unknown>>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     if (method === 'model') this.settings = {...this.settings, model: String(params.model)};
     if (method === 'effort') this.settings = {...this.settings, reasoning: {...this.settings.reasoning, effort: String(params.effort)}};
-    if (method === 'approval') this.settings = {...this.settings, approval: String(params.mode)};
+    if (method === 'approval') this.settings = {...this.settings, approval: {
+      on_request: 'ask', on_fail: 'on fail', auto: 'auto', auto_edit: 'auto-edit', never: 'read-only', yolo: 'yolo',
+    }[String(params.mode)] ?? this.settings.approval};
     if (method === 'model' || method === 'effort' || method === 'approval') this.emit({type: 'settings', settings: this.settings});
     if (method === 'submit') {
       const text = String(params.text);
