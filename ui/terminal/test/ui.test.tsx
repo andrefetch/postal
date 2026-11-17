@@ -37,7 +37,7 @@ async function until(predicate: () => boolean) {
 }
 
 test('centered home and prompt controls fit narrow, short, and wide terminals', () => {
-  for (const [columns, rows] of [[140, 40], [100, 30], [80, 24], [50, 18], [40, 12]]) {
+  for (const [columns, rows] of [[140, 40], [100, 30], [80, 24], [50, 18], [40, 12], [32, 10]]) {
     const frame = stripAnsi(renderToString(<TerminalView columns={columns!} rows={rows!}
       state={{...initialState, ready: true, status: 'Ready', settings}} draft={{text: '', cursor: 0}} focus="input"
       files={[]} web={false} sending={false} action={() => {}} removeFiles={() => {}} removeWeb={() => {}}
@@ -47,6 +47,8 @@ test('centered home and prompt controls fit narrow, short, and wide terminals', 
     assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
     assert.ok(frame.includes('Ask anything'));
     assert.ok(frame.includes('↑'));
+    for (const row of initialState.logo) assert.ok(frame.includes(row.trim()), 'cloud is clipped');
+    assert.ok(!frame.includes('p o s t a l'));
     const borderRow = lines.findIndex(line => line.includes('╭'));
     const border = lines[borderRow]!;
     assert.ok(Math.abs((border.indexOf('╭') + border.indexOf('╮') + 1) / 2 - columns! / 2) <= 1);

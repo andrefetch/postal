@@ -9,10 +9,11 @@ export interface State {
   capabilities: {read: boolean; search: boolean}; agents: Record<string, AgentRecord>; approval?: Approval;
   nextId: number; assistant?: number; reasoning?: number; tokens: number; recentModels: string[];
 }
+export const CLOUD_LOGO = ['      ████████        ', '    ██████████████    ', '  ██████████████████  ', '██████████████████████'];
 export const initialState: State = {
   ready: false, busy: false, status: 'Connecting', blocks: [], commands: [], history: [], nextId: 0, tokens: 0,
   version: '', capabilities: {read: false, search: false}, agents: {}, recentModels: [],
-  logo: ['    ██████      ', '  ████████████  ', '████████████████'],
+  logo: CLOUD_LOGO,
   settings: {model: '', cwd: '', approval: 'ask', reasoning: {enabled: true, visible: true, effort: null, max_tokens: null}},
 };
 export function reduce(state: State, message: ServerMessage): State {

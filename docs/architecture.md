@@ -76,7 +76,7 @@ Interactive sessions are a TypeScript Ink/React program in `ui/terminal/`. Pytho
 
 Inside the frontend, `state.ts` is a pure reducer over the protocol messages, so streaming behaviour is testable without a terminal. `App.tsx` owns transport, focus, and menus; `components.tsx` renders the conversation, prompt bar, and overlays; `editor.ts` implements the line editor (grapheme-aware movement, wrapping, history); `mouse.tsx` translates SGR mouse reports into clicks and wheel events. `demo.ts` provides a local fake backend for UI iteration without a model.
 
-`POSTAL_UI=textual` keeps the previous Textual interface (`ui/textual_app.py`, `ui/textual_widgets.py`, `ui/postal.tcss`) available as a fallback, and `ui/textual_app.py` remains the reference implementation for streaming and modal behaviour.
+The bundled TypeScript TUI is the only interactive interface. Node.js 22 or later is required.
 
 The single-shot CLI retains the Rich renderer below. Both interfaces use the same agent runtime, approval policy, and session storage.
 

@@ -15,7 +15,7 @@ export function layout(columns: number, rows: number, home: boolean, draft: Draf
   const padding = rows >= 22 ? 1 : 0;
   const inputRows = Math.min(Math.max(1, rows - 18), 5, Math.max(rows >= 22 ? 2 : 1, visualLines(draft.text, width - 6).length));
   const promptHeight = 2 + padding * 2 + inputRows + 1 + Number(sources);
-  const header = rows >= 18 ? 2 : 0, welcome = home ? rows >= 22 ? 6 : 3 : 0;
+  const header = rows >= 18 ? 2 : 0, welcome = home ? 4 + Number(rows >= 22) : 0;
   return {width, padding, inputRows, promptHeight, header, welcome,
     top: Math.max(0, Math.floor((rows - promptHeight) / 2) - header - welcome),
     conversation: Math.max(1, rows - header - promptHeight - 2)};
@@ -34,14 +34,13 @@ export function TerminalView(props: ViewProps) {
   if (columns < 32 || rows < 10) return <Box width={columns} height={rows}><Text>Resize to at least 32 × 10. Ctrl+Q quits.</Text></Box>;
   return <Box width={columns} height={rows} flexDirection="column" alignItems="center" backgroundColor={colors.background} overflow="hidden">
     {dimensions.header > 0 && <Box width={columns - 4} height={2} justifyContent="space-between">
-      <Text color={home ? colors.background : colors.muted}>{home ? '' : '☁  postal'}</Text>
+      <Text color={home ? colors.background : colors.muted}>{home ? '' : '☁'}</Text>
       <Text color={colors.dim} wrap="truncate">{fit(state.settings.cwd, Math.max(10, columns - 20))}</Text>
     </Box>}
     {home ? <>
       <Box height={dimensions.top} flexShrink={0}/>
       <Box flexDirection="column" alignItems="center" height={dimensions.welcome} flexShrink={0}>
         {state.logo.map((line, index) => <Text key={index} color={colors.text}>{line}</Text>)}
-        {dimensions.welcome > 3 && <Box marginTop={1} marginBottom={1}><Text color={colors.muted}>p o s t a l</Text></Box>}
       </Box>
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}

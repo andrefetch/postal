@@ -36,7 +36,6 @@ dependencies = [
     "prompt-toolkit>=3.0",
     "pydantic>=2.13",
     "rich>=15.0",
-    "textual>=8.2.8,<9",
     "tiktoken>=0.13",
 ]
 
@@ -65,7 +64,7 @@ exclude = ["ui.terminal", "ui.terminal.*", "ui.terminal_bundle", "ui.terminal_bu
 
 [tool.setuptools.package-data]
 "*" = [
-    "*.md", "*.txt", "*.tcss", "*.toml",
+    "*.md", "*.txt", "*.toml",
     "ui/terminal/package.json", "ui/terminal/package-lock.json",
     "ui/terminal/tsconfig.json", "ui/terminal/build.mjs",
     "ui/terminal/src/*.ts", "ui/terminal/src/*.tsx",

@@ -8,7 +8,7 @@ from ui.components.confirmation import (
 )
 from ui.components.diff_viewer import diff_viewer
 from ui.components.gutter import Gutter
-from ui.components.logo import LOGO_HEIGHT, LOGO_WIDTH, POSTAL_VERSION, logo, small_wordmark
+from ui.components.logo import LOGO_HEIGHT, LOGO_WIDTH, POSTAL_VERSION, logo
 from ui.components.markdown import MarkdownStream, render_inline, render_line, render_markdown
 from ui.components.memory import render_memory
 from ui.components.plan import render_plan
@@ -67,7 +67,6 @@ __all__ = [
     'shimmer',
     'shimmer_tool_label',
     'shimmers',
-    'small_wordmark',
     'status_bar',
     'permission_choices',
     'permission_prompt',

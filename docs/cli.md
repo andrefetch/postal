@@ -14,8 +14,6 @@ postal upgrade
 
 Postal needs Python 3.11 or newer and Node.js 22 or newer (the interactive TUI is a bundled TypeScript program that runs on `node`). The npm dependencies are bundled into the package, so you never need to run `npm install` to use Postal. A `Dockerfile` and Compose file live in [`docker/`](../docker/) if you would rather run the agent sandboxed.
 
-Set `POSTAL_UI=textual` to use the previous Textual interface instead of the TypeScript one, for example on a machine without Node.
-
 When a newer release is available, Postal displays a notice when the interactive TUI starts. It never upgrades automatically; run `postal upgrade` yourself to install it.
 
 On macOS (`darwin`), `postal upgrade` detects pipx-managed installations and runs

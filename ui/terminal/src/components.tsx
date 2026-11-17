@@ -7,7 +7,7 @@ import {clean, cursorRow, fit, visualLines, type Draft} from './editor.js';
 import type {Block, State} from './state.js';
 import {HitBox} from './mouse.js';
 
-export const colors = {background: '#111114', panel: '#25252b', menu: '#2d2d35', text: '#f3f1f7', muted: '#9996a4', dim: '#666370', accent: '#b8a1ff', line: '#45414f'};
+export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#b8a1ff', line: '#454545'};
 const markdown = new Marked(markedTerminal({reflowText: false, showSectionPrefix: false, tab: 2}) as any);
 export type Focus = 'input' | 'add' | 'model' | 'effort' | 'send';
 export const focusOrder: Focus[] = ['input', 'add', 'model', 'effort', 'send'];
@@ -88,7 +88,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       }
     } else {
       if (lines.length) push('');
-      if (block.kind !== 'notice') push(block.kind === 'user' ? 'You' : 'Postal', block.kind === 'user' ? colors.muted : colors.accent);
+      if (block.kind !== 'notice') push(block.kind === 'user' ? 'You' : 'Assistant', block.kind === 'user' ? colors.muted : colors.accent);
       if (block.files?.length || block.web) push([...(block.files ?? []).map(path => basename(path)), ...(block.web ? ['Web search'] : [])].join(' · '), colors.dim);
       const text = clean(block.text);
       if (block.kind === 'assistant') {

@@ -13,7 +13,6 @@ What Postal is built on, and what each piece is actually doing.
 | **[marked](https://github.com/markedjs/marked) + [marked-terminal](https://github.com/mikaelbr/marked-terminal)** | Markdown rendering for assistant replies and tool output. |
 | **[wrap-ansi](https://github.com/chalk/wrap-ansi) / [string-width](https://github.com/sindresorhus/string-width)** | Grapheme- and width-aware wrapping so wide characters and emoji do not break the layout. |
 | **[Rich](https://github.com/Textualize/rich)** | Slash-command output and the streaming renderer for single-shot runs, plus the shared render components. |
-| **[Textual](https://github.com/Textualize/textual)** | The fallback interface, kept available as `POSTAL_UI=textual`. |
 | **[prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)** | Persistent prompt history shared with the previous interface, and legacy terminal input helpers. |
 | **[Pygments](https://pygments.org/)** | Syntax highlighting for code blocks and file previews rendered through Rich. |
 

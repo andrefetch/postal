@@ -43,8 +43,6 @@ npm run preview   # run the UI against a local fake backend
 
 Commit the rebuilt `ui/terminal_bundle/postal.mjs` whenever `ui/terminal/src` changes: the Python package ships the bundle, not the TypeScript sources, so an unbuilt change never reaches users. The `TypeScript terminal` job in CI rebuilds and fails if the committed bundle is stale. `tests/test_ui_bridge.py` exercises the protocol with a real `BridgeSession`, so no API key is required.
 
-`POSTAL_UI=textual` still selects the previous Textual interface (`ui/textual_app.py`, `ui/textual_widgets.py`). Treat it as a maintained fallback: keep it importable and keep `tests/test_textual_ui.py` passing, but new interactive work goes in `ui/terminal/`.
-
 Postal uses a component-based UI system where each visual element is a separate, reusable component. This design makes it easier to:
 
 - **Create new UI elements:** Add new components following the existing patterns in `ui/components/` and `ui/terminal/src/`

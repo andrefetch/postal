@@ -5,9 +5,10 @@ from ui.theme.palette import PALETTE
 POSTAL_VERSION = "0.0.37"
 
 CLOUD_PIXELS = (
-    "..###...",
-    ".######.",
-    "########",
+    "...####....",
+    "..#######..",
+    ".#########.",
+    "###########",
 )
 _PIXEL = "██"
 
@@ -19,13 +20,6 @@ LOGO_WIDTH = max(len(row) for row in POSTAL_BLOB)
 LOGO_HEIGHT = len(POSTAL_BLOB)
 
 _BODY = PALETTE["bright"]
-
-_SILVER = (168, 174, 186)
-
-
-def small_wordmark(justify: str = "center") -> Text:
-    r, g, b = _SILVER
-    return Text(" ".join("postal"), style=f"rgb({r},{g},{b})", justify=justify, no_wrap=True)
 
 
 def logo() -> Text:

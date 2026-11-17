@@ -1,15 +1,16 @@
+import {CLOUD_LOGO} from './state.js';
 import type {ServerMessage, Settings, Transport} from './protocol.js';
 
 export class DemoBackend implements Transport {
   private listeners = new Set<(message: ServerMessage) => void>();
   private timers: ReturnType<typeof setTimeout>[] = [];
-  private settings: Settings = {model: 'demo/postal', cwd: '~/workspace/postal', approval: 'ask',
+  private settings: Settings = {model: 'demo/model', cwd: '~/workspace', approval: 'ask',
     reasoning: {enabled: true, visible: true, effort: 'medium', max_tokens: null}};
   private emit(message: ServerMessage) { for (const listener of this.listeners) listener(message); }
   subscribe(listener: (message: ServerMessage) => void) {
     this.listeners.add(listener);
     queueMicrotask(() => listener({type: 'ready', settings: this.settings, history: [], messages: [], version: 'preview',
-      logo: ['    ██████      ', '  ████████████  ', '████████████████'], capabilities: {read: false, search: false},
+      logo: CLOUD_LOGO, capabilities: {read: false, search: false},
       commands: [{name: 'help', description: 'Show help'}, {name: 'clear', description: 'Start a fresh conversation'}]}));
     return () => { this.listeners.delete(listener); };
   }

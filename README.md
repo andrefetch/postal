@@ -23,7 +23,7 @@ postal login    # opens your browser to authorize with OpenRouter
 postal          # start the interactive TUI
 ```
 
-Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required). Set `POSTAL_UI=textual` to use the previous Textual interface instead.
+Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required).
 
 ## Usage
 
