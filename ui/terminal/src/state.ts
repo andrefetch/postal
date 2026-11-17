@@ -41,12 +41,13 @@ export function reduce(state: State, message: ServerMessage): State {
         const reasoning = event.type === 'reasoning_delta';
         if (reasoning && !state.settings.reasoning.visible) return state;
         const key = reasoning ? 'reasoning' : 'assistant', id = state[key];
-        if (id === undefined) return {...add({kind: reasoning ? 'reasoning' : 'assistant', text: data.content ?? ''}),
+        if (id === undefined) return {...add({kind: reasoning ? 'reasoning' : 'assistant', text: data.content ?? '', ...(reasoning ? {status: 'running'} : {})}),
           [key]: state.nextId, status: reasoning ? 'Thinking' : 'Responding'};
         return {...state, blocks: state.blocks.map(block => block.id === id ? {...block, text: block.text + (data.content ?? '')} : block)};
       }
       if (event.type === 'text_complete') return {...state, assistant: undefined};
-      if (event.type === 'reasoning_complete') return {...state, reasoning: undefined};
+      if (event.type === 'reasoning_complete') return {...state, reasoning: undefined,
+        blocks: state.blocks.map(block => block.id === state.reasoning ? {...block, status: 'completed'} : block)};
       if (event.type === 'tool_call_start') return {...add({kind: 'tool', title: data.name, args: data.arguments,
         callId: data.call_id, status: 'running', text: ''}), status: `Running ${data.name}`};
       if (event.type === 'tool_progress' || event.type === 'tool_call_complete') return {...state,

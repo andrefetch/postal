@@ -7,6 +7,7 @@ import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
 import {PostalApp, TerminalView} from '../src/App.js';
 import {initialState} from '../src/state.js';
+import {SPINNER_FRAMES} from '../src/activity.js';
 import type {ServerMessage, Settings, Transport} from '../src/protocol.js';
 
 afterEach(cleanup);
@@ -68,9 +69,37 @@ test('keyboard submission streams responses, preserves multiline input, and can 
   assert.equal(backend.requests.find(request => request.method === 'submit')!.params.text, 'first\nsecond');
   backend.emit({type: 'agent_event', event: {type: 'text_delta', data: {content: 'Live Python response'}, agent_id: 'main', parent_agent_id: null}});
   await until(() => app.lastFrame()?.includes('Live Python response') ?? false);
+  assert.ok(app.lastFrame()?.includes('Postal'));
+  assert.ok(!app.lastFrame()?.includes('Assistant'));
   app.stdin.write('\x1b');
   await until(() => backend.requests.some(request => request.method === 'cancel'));
   await until(() => app.lastFrame()?.includes('Interrupted') ?? false);
+});
+
+test('loading animates during thinking and tools, pauses for approval, and stops after interruption', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
+  const spinner = () => [...stripAnsi(app.lastFrame() ?? '')].find(character => SPINNER_FRAMES.includes(character));
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  assert.equal(spinner(), undefined);
+  backend.emit({type: 'turn_start', text: 'Inspect this project', files: [], web: false});
+  await until(() => spinner() !== undefined);
+  const first = spinner();
+  await until(() => spinner() !== first);
+  assert.ok(app.lastFrame()?.includes('Thinking'));
+  backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
+    data: {call_id: 'read-1', name: 'read', arguments: {path: 'app.py'}}}});
+  await until(() => app.lastFrame()?.includes('Running read') ?? false);
+  backend.emit({type: 'approval', approval: {id: 'approval-1', tool: 'read', description: 'Read app.py', params: {}, paths: [], dangerous: false}});
+  await until(() => app.lastFrame()?.includes('Awaiting approval') ?? false);
+  assert.equal(spinner(), undefined);
+  backend.emit({type: 'approval_closed', id: 'approval-1'});
+  await until(() => spinner() !== undefined);
+  backend.emit({type: 'turn_end', status: 'Interrupted'});
+  await until(() => app.lastFrame()?.includes('Interrupted') ?? false);
+  assert.equal(spinner(), undefined);
+  const stopped = app.lastFrame();
+  await delay(200);
+  assert.equal(app.lastFrame(), stopped);
 });
 
 test('approval defaults to reject and approval shortcuts are explicit', async () => {

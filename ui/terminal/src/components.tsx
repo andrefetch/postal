@@ -7,8 +7,12 @@ import {clean, cursorRow, fit, visualLines, type Draft} from './editor.js';
 import type {Block, State} from './state.js';
 import {HitBox} from './mouse.js';
 
-export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#b8a1ff', line: '#454545'};
-const markdown = new Marked(markedTerminal({reflowText: false, showSectionPrefix: false, tab: 2}) as any);
+export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
+const plain = (text: string) => text;
+const markdown = new Marked(markedTerminal({reflowText: false, showSectionPrefix: false, tab: 2,
+  heading: plain, firstHeading: plain, codespan: plain, link: plain, href: plain,
+  tableOptions: {style: {head: [], border: []}},
+}) as any, {renderer: {code: ({text}) => `${clean(text).split('\n').map(line => `  ${line}`).join('\n')}\n\n`}});
 export type Focus = 'input' | 'add' | 'model' | 'effort' | 'send';
 export const focusOrder: Focus[] = ['input', 'add', 'model', 'effort', 'send'];
 
@@ -70,25 +74,26 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
   </Box>;
 }
 
-export interface ConversationLine {text: string; block?: number; color?: string}
+export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean}
 export function conversationLines(blocks: Block[], width: number, expanded: Set<number>): ConversationLine[] {
   const lines: ConversationLine[] = [];
-  const push = (text: string, color?: string, block?: number) => {
-    for (const line of wrapAnsi(text, Math.max(1, width), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block});
+  const push = (text: string, color?: string, block?: number, activity = false) => {
+    for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 2 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
   };
   for (const block of blocks) {
     if (block.kind === 'tool' || block.kind === 'reasoning') {
       const open = expanded.has(block.id);
-      const status = block.kind === 'reasoning' ? '' : block.status === 'running' ? '◌ ' : block.status === 'completed' ? '✓ ' : '× ';
-      const summary = block.kind === 'reasoning' ? 'Thinking' : `${status}${block.title}  ${Object.values(block.args ?? {}).find(value => typeof value === 'string') ?? ''}`;
-      push(`${open ? '⌄' : '›'} ${fit(summary, width - 2)}`, colors.muted, block.id);
+      const active = block.status === 'running';
+      const status = block.kind === 'reasoning' || active ? '' : block.status === 'completed' ? '✓ ' : '× ';
+      const summary = block.kind === 'reasoning' ? 'Thinking…' : `${status}${block.title}  ${Object.values(block.args ?? {}).find(value => typeof value === 'string') ?? ''}`;
+      push(`${open ? '⌄' : '›'} ${fit(summary, width - (active ? 4 : 2))}`, colors.muted, block.id, active);
       if (open) {
         if (block.args) push(clean(JSON.stringify(block.args, null, 2)), colors.dim);
         push(clean(block.text), colors.muted);
       }
     } else {
       if (lines.length) push('');
-      if (block.kind !== 'notice') push(block.kind === 'user' ? 'You' : 'Assistant', block.kind === 'user' ? colors.muted : colors.accent);
+      if (block.kind !== 'notice') push(block.kind === 'user' ? 'You' : 'Postal', block.kind === 'user' ? colors.muted : colors.accent);
       if (block.files?.length || block.web) push([...(block.files ?? []).map(path => basename(path)), ...(block.web ? ['Web search'] : [])].join(' · '), colors.dim);
       const text = clean(block.text);
       if (block.kind === 'assistant') {
@@ -116,7 +121,7 @@ export function Menu({title, choices, selected, input, width, height, error, onC
         {start + offset === selected ? '› ' : '  '}{fit(choice.label, Math.max(4, width - 10))}{width >= 60 && choice.detail ? <Text color={colors.muted}>  {choice.detail}</Text> : ''}
       </Text>
     </HitBox>)}
-    {error && <Text color="#e5a3ad" wrap="truncate">{clean(error)}</Text>}
+    {error && <Text color={colors.text} wrap="truncate">{clean(error)}</Text>}
     <Box marginTop={1}><Text color={colors.dim}>{choices.length ? '↑ ↓ choose   enter select' : 'Enter confirm'}{input ? '   esc close' : ''}</Text></Box>
   </Box>;
 }

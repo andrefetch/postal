@@ -7,6 +7,7 @@ import {initialState, reduce, type State} from './state.js';
 import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './editor.js';
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
+import {LoadingText, useActivityFrame} from './activity.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -27,10 +28,14 @@ export interface ViewProps extends Omit<PromptProps, 'width' | 'inputRows' | 'pa
 }
 export function TerminalView(props: ViewProps) {
   const {state, columns, rows, draft, files, web, lines, scroll, toggle, toast, overlay} = props;
+  const animate = state.busy && !state.approval;
+  const frame = useActivityFrame(animate);
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const offset = Math.min(maxScroll, scroll ?? maxScroll);
+  const statusWidth = dimensions.width - (dimensions.width > 55 ? 28 : 0);
+  const activitySuffix = ` · esc stop${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`;
   if (columns < 32 || rows < 10) return <Box width={columns} height={rows}><Text>Resize to at least 32 × 10. Ctrl+Q quits.</Text></Box>;
   return <Box width={columns} height={rows} flexDirection="column" alignItems="center" backgroundColor={colors.background} overflow="hidden">
     {dimensions.header > 0 && <Box width={columns - 4} height={2} justifyContent="space-between">
@@ -45,12 +50,17 @@ export function TerminalView(props: ViewProps) {
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
-        <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>
+        {line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}
     </Box>}
     <PromptBar {...props} width={dimensions.width} inputRows={dimensions.inputRows} padding={dimensions.padding} active={!overlay}/>
     <Box width={dimensions.width} height={2} paddingTop={1} justifyContent="space-between" flexShrink={0}>
-      <Text color={state.busy ? colors.accent : colors.dim} wrap="truncate">{fit(toast || `${state.busy ? '◌ ' : ''}${state.status}${state.busy ? ' · esc stop' : ` · ${state.settings.approval}`}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, dimensions.width - (dimensions.width > 55 ? 28 : 0))}</Text>
+      <Box width={statusWidth} overflow="hidden">
+        {animate && !toast ? <>
+          <LoadingText text={fit(state.status === 'Thinking' ? 'Thinking…' : state.status, Math.max(1, statusWidth - activitySuffix.length - 2))} frame={frame}/>
+          <Text color={colors.dim} wrap="truncate">{activitySuffix}</Text>
+        </> : <Text color={colors.dim} wrap="truncate">{fit(toast || `${state.approval ? 'Awaiting approval' : state.status} · ${state.settings.approval}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, dimensions.width - (dimensions.width > 55 ? 28 : 0))}</Text>}
+      </Box>
       {dimensions.width > 55 && <Text color={colors.dim}>{scroll !== null && offset < maxScroll ? 'pgdn latest' : '/ commands    enter send'}</Text>}
     </Box>
     {overlay && <Box position="absolute" top={0} left={0} width={columns} height={rows} alignItems="center" justifyContent="center">{overlay}</Box>}
@@ -237,7 +247,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     const visible = Math.max(1, panelHeight - 7), start = Math.min(approvalScroll, Math.max(0, preview.length - visible));
     overlay = <Box flexDirection="column" width={panelWidth} height={panelHeight} paddingX={2} paddingY={1} backgroundColor={colors.menu} borderStyle="round" borderColor={colors.accent}>
       <Text bold color={colors.text}>{approval.dangerous ? '! ' : ''}Permission required · {approval.tool}</Text>
-      <Box flexDirection="column" height={visible} marginY={1} overflow="hidden">{preview.slice(start, start + visible).map((line, index) => <Text key={index} color={line.startsWith('+') ? '#b8d9b0' : line.startsWith('-') ? '#dfa3ae' : colors.muted} wrap="truncate">{line || ' '}</Text>)}</Box>
+      <Box flexDirection="column" height={visible} marginY={1} overflow="hidden">{preview.slice(start, start + visible).map((line, index) => <Text key={index} color={line.startsWith('+') ? colors.text : line.startsWith('-') ? colors.dim : colors.muted} wrap="truncate">{line || ' '}</Text>)}</Box>
       <Box gap={3}><HitBox onClick={() => respond(false)}><Text inverse={!approvalChoice}> Reject [n] </Text></HitBox><HitBox onClick={() => respond(true)}><Text inverse={approvalChoice}> Approve [y] </Text></HitBox></Box>
     </Box>;
   } else if (menu?.kind === 'agents') {
