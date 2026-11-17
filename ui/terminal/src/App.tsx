@@ -10,6 +10,7 @@ import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, typ
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
 import {LoadingText, useActivityFrame} from './activity.js';
 import LatticeLoader from './LatticeLoader.js';
+import PixelSnow, {type SnowRect} from './PixelSnow.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -40,8 +41,17 @@ export function TerminalView(props: ViewProps) {
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const offset = Math.min(maxScroll, scroll ?? maxScroll);
   const statusWidth = dimensions.width - (dimensions.width > 55 ? 28 : 0);
+  const contentX = Math.floor((columns - dimensions.width) / 2);
+  const promptY = dimensions.header + (home ? dimensions.top + dimensions.welcome : dimensions.conversation);
+  const snowExclusions: SnowRect[] = [
+    {x: 0, y: 0, width: columns, height: dimensions.header},
+    {x: contentX - 1, y: promptY, width: dimensions.width + 2, height: dimensions.promptHeight + 2},
+    home ? {x: Math.floor((columns - 22) / 2) - 1, y: dimensions.header + dimensions.top, width: 24, height: dimensions.welcome}
+      : {x: contentX - 1, y: dimensions.header, width: dimensions.width + 2, height: dimensions.conversation},
+  ];
   if (columns < 32 || rows < 10) return <Box width={columns} height={rows}><Text>Resize to at least 32 × 10. Ctrl+Q quits.</Text></Box>;
   return <Box width={columns} height={rows} flexDirection="column" alignItems="center" backgroundColor={colors.background} overflow="hidden">
+    <PixelSnow columns={columns} rows={rows} exclusions={snowExclusions} paused={!!overlay}/>
     {dimensions.header > 0 && <Box width={columns - 4} height={2} justifyContent="space-between">
       <Text color={home ? colors.background : colors.muted}>{home ? '' : '☁'}</Text>
       <Text color={colors.dim} wrap="truncate">{fit(state.settings.cwd, Math.max(10, columns - 20))}</Text>

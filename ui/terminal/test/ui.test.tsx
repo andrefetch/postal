@@ -75,6 +75,21 @@ test('keyboard submission streams responses, preserves multiline input, and can 
   await until(() => app.lastFrame()?.includes('Interrupted') ?? false);
 });
 
+test('snow stays outside the cloud and prompt while the home background animates', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  await delay(1500);
+  const lines = stripAnsi(app.lastFrame() ?? '').split('\n');
+  assert.ok(/[·∙✦❄]/.test(lines.slice(2).join('\n')));
+  const top = lines.findIndex(line => line.includes('╭')), bottom = lines.findIndex(line => line.includes('╰'));
+  const left = lines[top]!.indexOf('╭'), right = lines[top]!.indexOf('╮');
+  assert.ok(!/[∙✦❄]/.test(lines.slice(top, bottom + 1).map(line => line.slice(left, right + 1)).join('\n')));
+  const cloud = lines.findIndex(line => line.includes('████████'));
+  assert.ok(!/[·∙✦❄]/.test(lines.slice(cloud, cloud + 4).map(line => line.slice(38, 62)).join('\n')));
+  assert.ok(lines.every(line => stringWidth(line) <= 100));
+  assert.equal(lines.length, 30);
+});
+
 test('loading animates during thinking and tools, pauses for approval, and stops after interruption', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
   const spinner = () => {
@@ -105,9 +120,9 @@ test('loading animates during thinking and tools, pauses for approval, and stops
   backend.emit({type: 'turn_end', status: 'Interrupted'});
   await until(() => app.lastFrame()?.includes('Interrupted') ?? false);
   assert.equal(spinner(), undefined);
-  const stopped = app.lastFrame();
   await delay(200);
-  assert.equal(app.lastFrame(), stopped);
+  assert.equal(spinner(), undefined);
+  assert.ok(app.lastFrame()?.includes('Interrupted'));
 });
 
 test('approval defaults to reject and approval shortcuts are explicit', async () => {
