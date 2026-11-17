@@ -78,7 +78,7 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
 }
 
 export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean;
-  lattice?: {status: LatticeStatus; startedAt: number; finishedAt?: number};
+  thought?: {status: LatticeStatus; startedAt: number; finishedAt?: number; steps: string[]; open: boolean; doneLabel?: string};
   tool?: ToolPresentation;
 }
 export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'>): ConversationLine[] {
@@ -86,8 +86,13 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
   const push = (text: string, color?: string, block?: number, activity = false) => {
     for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
   };
-  const thinking = (text: string, status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number) => {
-    lines.push({text, block, activity: status === 'working', lattice: {status, startedAt, finishedAt}});
+  const thinking = (status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number, steps: string[] = [], open = false, doneLabel?: string) => {
+    lines.push({text: status === 'working' ? 'Thinking…' : doneLabel ?? 'Thought for', block, activity: status === 'working',
+      thought: {status, startedAt, finishedAt, steps, open, doneLabel}});
+    if (open) {
+      const visible = status === 'working' ? steps.slice(-4) : steps;
+      for (const [index, step] of visible.entries()) push(`  ${status !== 'working' || index < visible.length - 1 ? '✓' : '•'} ${status === 'working' ? fit(step, width - 4) : step}`, status === 'working' && index === visible.length - 1 ? colors.muted : colors.dim, block);
+    }
   };
   const pushTool = (item: ToolActivity, id: number, open: boolean, indent = 0) => {
     lines.push({text: `${item.name} ${toolTarget(item.args)}`, block: id, activity: item.status === 'running',
@@ -114,12 +119,14 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text);
       if (open && agent.result) push(clean(agent.result), colors.muted);
     } else if (block.kind === 'tool' || block.kind === 'reasoning') {
-      const open = expanded.has(block.id);
       const active = block.status === 'running';
-      if (block.kind === 'reasoning') thinking(`${open ? '⌄' : '›'} Thinking`, active ? 'working' : block.status === 'completed' ? 'done' : 'error', block.startedAt ?? 0, block.finishedAt, block.id);
+      const open = block.kind === 'reasoning' && active ? !expanded.has(-block.id - 1) : expanded.has(block.id);
+      if (block.kind === 'reasoning') thinking(active ? 'working' : block.status === 'completed' ? 'done' : 'error',
+        block.startedAt ?? 0, block.finishedAt, block.id, clean(block.text).split(/\n+/).map(line => line.trim()).filter(Boolean), open,
+        block.status === 'cancelled' ? 'Stopped after' : block.status === 'failed' ? 'Failed after' : undefined);
       else pushTool({name: block.title ?? 'Tool', args: block.args ?? {}, status: block.status ?? 'completed', output: block.text,
         startedAt: block.startedAt, finishedAt: block.finishedAt, error: block.error, exitCode: block.exitCode, diff: block.diff}, block.id, open);
-      if (open) {
+      if (open && block.kind === 'tool') {
         if (block.args) for (const [name, value] of Object.entries(block.args)) push(`  │ ${name}  ${clean(typeof value === 'string' ? value : JSON.stringify(value))}`, colors.dim, block.id);
         for (const line of clean(block.text).split('\n')) push(`  │ ${line}`, colors.muted, block.id);
       }
@@ -137,7 +144,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
   }
   if (activity?.busy && !blocks.some(block => (block.kind === 'reasoning' || block.kind === 'tool') && block.status === 'running')) {
     if (activity.status === 'Responding') push('› Responding…', colors.muted, undefined, true);
-    else thinking('› Thinking', 'working', activity.turnStartedAt ?? 0);
+    else thinking('working', activity.turnStartedAt ?? 0);
   }
   return lines;
 }

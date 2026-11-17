@@ -95,7 +95,7 @@ test('loading animates during thinking and tools, pauses for approval, and stops
   const spinner = () => {
     const frame = stripAnsi(app.lastFrame() ?? '');
     if (frame.includes('Awaiting approval')) return undefined;
-    return frame.match(/[\u2801-\u28ff]{2}/)?.[0];
+    return frame.match(/[\u2801-\u28ff]{2}/)?.[0] ?? frame.match(/Thinking… (\d+\.\d+s)/)?.[1];
   };
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   assert.equal(spinner(), undefined);
@@ -140,6 +140,31 @@ test('approval defaults to reject and approval shortcuts are explicit', async ()
   app.stdin.write('y');
   await until(() => backend.requests.filter(request => request.method === 'approve').length === 2);
   assert.deepEqual(backend.requests.at(-1)!.params, {approvalId: 'approval-2', approved: true});
+});
+
+test('thinking uses a collapsible sparkle ThoughtLine while tools retain their lattice', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  backend.emit({type: 'turn_start', text: 'Inspect the project', files: [], web: false});
+  backend.emit({type: 'agent_event', event: {type: 'reasoning_delta', agent_id: 'main', parent_agent_id: null,
+    data: {content: 'Reading the supplied question\nConsidering the relevant code'}}});
+  await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
+  assert.ok(app.lastFrame()?.includes('✦ Thinking…'));
+  assert.ok(!/[\u2801-\u28ff]{2}/.test(app.lastFrame() ?? ''));
+  app.stdin.write('\x0f');
+  await until(() => !app.lastFrame()?.includes('Considering the relevant code'));
+  app.stdin.write('\x0f');
+  await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
+  backend.emit({type: 'agent_event', event: {type: 'reasoning_complete', agent_id: 'main', parent_agent_id: null, data: {}}});
+  await until(() => app.lastFrame()?.includes('Thought for') ?? false);
+  assert.ok(!app.lastFrame()?.includes('Considering the relevant code'));
+  app.stdin.write('\x0f');
+  await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
+  backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
+    data: {call_id: 'read-1', name: 'read', arguments: {path: 'src/app.py'}}}});
+  await until(() => app.lastFrame()?.includes('Running') ?? false);
+  assert.ok(/[\u2801-\u28ff]{2}/.test(app.lastFrame() ?? ''));
+  backend.emit({type: 'turn_end', status: 'Ready'});
 });
 
 test('completed tools show a concise result and expand to reveal full output', async () => {

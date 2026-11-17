@@ -9,7 +9,7 @@ import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './e
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
 import {LoadingText, useActivityFrame} from './activity.js';
-import LatticeLoader from './LatticeLoader.js';
+import ThoughtLine from './ThoughtLine.js';
 import PixelSnow, {type SnowRect} from './PixelSnow.js';
 import ToolRow from './ToolRow.js';
 
@@ -66,8 +66,9 @@ export function TerminalView(props: ViewProps) {
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
         {line.tool ? <ToolRow tool={line.tool} width={dimensions.width} now={animate ? Date.now() : pausedAt.current!} animate={animate}/>
-          : line.lattice ? <LatticeLoader status={line.lattice.status} label={line.text}
-          elapsed={Math.max(0, ((line.lattice.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.lattice.startedAt) / 1000)}/>
+          : line.thought ? <ThoughtLine working={line.thought.status === 'working'} label="Thinking…" doneLabel={line.thought.doneLabel ?? 'Thought for'}
+            steps={line.thought.steps} open={line.thought.open} headOnly width={dimensions.width} paused={!animate} finishedAt={line.thought.finishedAt}
+            elapsed={Math.max(0, ((line.thought.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thought.startedAt) / 1000)}/>
           : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}
     </Box>}
@@ -138,7 +139,9 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     return () => { mouse?.off('mouse', wheel); };
   }, [mouse, moveScroll, menu, state.approval]);
   const toggle = (id: number) => setExpanded(current => {
-    const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next;
+    const block = state.blocks.find(block => block.id === id);
+    const key = block?.kind === 'reasoning' && block.status === 'running' ? -id - 1 : id;
+    const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next;
   });
   const submit = async () => {
     if (state.busy) { await request('cancel'); return; }

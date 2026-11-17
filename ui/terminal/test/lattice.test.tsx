@@ -26,17 +26,17 @@ test('lattice displays its grid, working timer, and frozen success or failure la
   assert.equal(formatElapsed(-1), '0.0s');
   const lines = conversationLines([{id: 1, kind: 'reasoning', status: 'completed', text: '', startedAt: 1000, finishedAt: 3400}], 40, new Set());
   assert.equal(lines.length, 1);
-  assert.ok(lines.every(line => line.lattice?.status === 'done' && line.lattice.finishedAt === 3400));
+  assert.ok(lines.every(line => line.thought?.status === 'done' && line.thought.finishedAt === 3400));
 });
 
-test('reasoning failure freezes the lattice timer at disconnection', () => {
+test('reasoning failure freezes the thought timer at disconnection', () => {
   let state = reduce(initialState, {type: 'turn_start', text: 'Inspect', files: [], web: false});
   state = reduce(state, {type: 'agent_event', event: {type: 'reasoning_delta', agent_id: 'main', parent_agent_id: null, data: {content: 'Working'}}});
   state = reduce(state, {type: 'fatal', message: 'Connection lost'});
   assert.equal(state.busy, false);
-  const lines = conversationLines(state.blocks, 40, new Set(), state).filter(line => line.lattice);
+  const lines = conversationLines(state.blocks, 40, new Set(), state).filter(line => line.thought);
   assert.equal(lines.length, 1);
-  assert.ok(lines.every(line => line.lattice!.status === 'error' && line.lattice!.finishedAt !== undefined));
+  assert.ok(lines.every(line => line.thought!.status === 'error' && line.thought!.finishedAt !== undefined));
 });
 
 test('compact lattice occupies two columns and animates using the arrow pattern', () => {
