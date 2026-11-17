@@ -26,9 +26,15 @@ export function shimmerColor(index: number, frame: number, length: number) {
   return `#${shade.repeat(3)}`;
 }
 
-export function LoadingText({text, frame}: {text: string; frame: number}) {
+export function ShimmerText({text, frame, bold}: {text: string; frame: number; bold?: boolean}) {
   const characters = [...text];
-  return <Text wrap="truncate"><LatticeIcon elapsed={frame * FRAME_INTERVAL / 1000}/>{' '}
+  return <Text bold={bold} wrap="truncate">
     {characters.map((character, index) => <Text key={index} color={shimmerColor(index, frame, characters.length)}>{character}</Text>)}
+  </Text>;
+}
+
+export function LoadingText({text, frame}: {text: string; frame: number}) {
+  return <Text wrap="truncate"><LatticeIcon elapsed={frame * FRAME_INTERVAL / 1000}/>{' '}
+    <ShimmerText text={text} frame={frame}/>
   </Text>;
 }

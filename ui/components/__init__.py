@@ -13,7 +13,7 @@ from ui.components.markdown import MarkdownStream, render_inline, render_line, r
 from ui.components.memory import render_memory
 from ui.components.plan import render_plan
 from ui.components.permission_prompt import permission_choices, permission_prompt
-from ui.components.shimmer import shimmer, shimmer_tool_label, shimmers
+from ui.components.shimmer import shimmer, shimmer_tool_label
 from ui.components.spinner import SPINNER_INTERVAL, Spinner
 from ui.components.status_bar import status_bar
 from ui.components.tool_progress import tool_progress_panel
@@ -66,7 +66,6 @@ __all__ = [
     'render_transcript',
     'shimmer',
     'shimmer_tool_label',
-    'shimmers',
     'status_bar',
     'permission_choices',
     'permission_prompt',

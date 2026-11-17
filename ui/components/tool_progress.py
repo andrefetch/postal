@@ -3,7 +3,7 @@ from __future__ import annotations
 from rich.panel import Panel
 from rich.text import Text
 
-from ui.components.shimmer import shimmer_tool_label, shimmers
+from ui.components.shimmer import shimmer_tool_label
 
 
 def tool_progress_panel(
@@ -19,10 +19,7 @@ def tool_progress_panel(
     """Render the compact live panel shown while a tool is running."""
 
     line = Text.assemble((f"{spinner} ", "tool"))
-    if shimmers(tool_kind):
-        line.append_text(shimmer_tool_label(name, frame))
-    else:
-        line.append(name, style="highlight")
+    line.append_text(shimmer_tool_label(name, frame))
     if headline:
         line.append("  ")
         line.append(headline, style="subtitle")

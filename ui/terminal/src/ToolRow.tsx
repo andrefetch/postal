@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {Box, Text} from 'ink';
 import stringWidth from 'string-width';
 import {fit} from './editor.js';
+import {FRAME_INTERVAL, ShimmerText} from './activity.js';
 import {formatElapsed, LatticeIcon} from './LatticeLoader.js';
 import {middleTruncate, shortPath, toolSummary, toolTarget, TOOL_SETTLE_DURATION, type ToolPresentation} from './toolPresentation.js';
 export {toolSummary, toolTarget} from './toolPresentation.js';
@@ -46,7 +47,9 @@ export default function ToolRow({tool: {activity: tool, indent = 0, expanded = f
       : <Text color={foreground}>{running ? '·' : tool.status === 'completed' ? '✓' : tool.status === 'cancelled' ? '■' : '×'} </Text>}</Box>
     <Text> </Text>
     <Box width={labelWidth} overflow="hidden" flexShrink={0}>
-      <Text wrap="truncate"><Text color={foreground} bold>{name}</Text>
+      <Text wrap="truncate">{running && animate
+        ? <ShimmerText text={name} frame={Math.floor(now / FRAME_INTERVAL)} bold/>
+        : <Text color={foreground} bold>{name}</Text>}
         {target && <Text color={path ? '#737373' : '#a0a0a0'}> {target.slice(0, directoryEnd)}<Text bold={path} color={path ? foreground : '#a0a0a0'}>{target.slice(directoryEnd)}</Text></Text>}
         {summaryText && <Text color="#737373">{summaryText}</Text>}
       </Text>
