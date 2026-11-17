@@ -15,7 +15,7 @@ from prompt_toolkit.history import FileHistory, History
 from rich.console import Console
 
 from agent.agent import Agent
-from config.config import Config
+from config.config import ApprovalPolicy, Config
 from tools.base import ToolConfirmation
 from ui.components.logo import POSTAL_BLOB, POSTAL_VERSION
 from ui.repl.commands import SlashCommands
@@ -189,6 +189,12 @@ class BridgeSession:
                 self.config.reasoning.max_tokens = None
                 effort = "on"
             await self.command(f"/thinking {effort}", quiet=True)
+            return self.settings()
+        if method == "approval":
+            mode = params.get("mode")
+            if mode not in {policy.value for policy in ApprovalPolicy}:
+                raise ValueError("Unsupported approval mode.")
+            await self.command(f"/approval {mode}", quiet=True)
             return self.settings()
         if method == "submit":
             text = params.get("text", "")

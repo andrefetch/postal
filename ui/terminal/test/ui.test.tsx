@@ -10,7 +10,7 @@ import {initialState} from '../src/state.js';
 import type {ServerMessage, Settings, Transport} from '../src/protocol.js';
 
 afterEach(cleanup);
-const settings: Settings = {model: 'provider/a-very-long-model-name', cwd: '/workspace/postal', approval: 'ask',
+const settings: Settings = {model: 'provider/a-very-long-model-name', cwd: '/workspace/postal', approval: 'on_request',
   reasoning: {enabled: true, visible: true, effort: 'minimal', max_tokens: null}};
 class Backend implements Transport {
   requests: {method: string; params: Record<string, unknown>}[] = [];
@@ -27,6 +27,7 @@ class Backend implements Transport {
     if (method === 'submit') this.emit({type: 'turn_start', text: String(params.text), files: [], web: false});
     if (method === 'cancel') this.emit({type: 'turn_end', status: 'Interrupted'});
     if (method === 'model') this.emit({type: 'settings', settings: {...settings, model: String(params.model)}});
+    if (method === 'approval') this.emit({type: 'settings', settings: {...settings, approval: String(params.mode)}});
     return (method === 'file' ? {path: '/workspace/postal/app.py'} : {}) as T;
   }
   async close() {}
@@ -49,7 +50,7 @@ test('centered home and prompt controls fit narrow, short, and wide terminals', 
       assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
       assert.ok(frame.includes('Ask anything'));
       assert.ok(!frame.includes('↑'));
-      assert.ok(frame.includes('Ready · ask'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
+      assert.ok(frame.includes('Ready · on_request'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
       if (files.length) assert.ok(frame.includes('app.py ×'));
       if (web) assert.ok(frame.includes('Web ×'));
       for (const row of initialState.logo.slice(Math.max(0, initialState.logo.length - dimensions.welcome))) assert.ok(frame.includes(row.trim()), 'cloud is clipped');
@@ -292,20 +293,20 @@ test('successful tools compact into groups and all detail shortcuts preserve the
   assert.ok(app.lastFrame()?.includes('keep my draft'));
 });
 
-test('model picker keeps the draft and command completion is keyboard accessible', async () => {
+test('approval picker sends the selected mode and command completion is keyboard accessible', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   app.stdin.write('keep my draft');
   await delay(30);
-  app.stdin.write('\t'); await delay(20);
-  app.stdin.write('\t'); await delay(20);
+  for (let index = 0; index < 3; index++) { app.stdin.write('\t'); await delay(20); }
   app.stdin.write('\r');
-  await until(() => app.lastFrame()?.includes('Choose a model') ?? false);
-  app.stdin.write('\x15'); await delay(20);
-  app.stdin.write('provider/new'); await delay(20);
+  await until(() => app.lastFrame()?.includes('Choose an approval mode') ?? false);
+  assert.ok(app.lastFrame()?.includes('Auto-edit'));
+  app.stdin.write('\x1b[B'); await delay(20);
+  await until(() => app.lastFrame()?.includes('On fail') ?? false);
   app.stdin.write('\r');
-  await until(() => backend.requests.some(request => request.method === 'model'));
-  assert.equal(backend.requests.find(request => request.method === 'model')!.params.model, 'provider/new');
+  await until(() => backend.requests.some(request => request.method === 'approval'));
+  assert.deepEqual(backend.requests.find(request => request.method === 'approval')!.params, {mode: 'on_fail'});
   await until(() => app.lastFrame()?.includes('keep my draft') ?? false);
   app.stdin.write('\x10');
   await until(() => app.lastFrame()?.includes('Commands') ?? false);

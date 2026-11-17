@@ -19,7 +19,7 @@ export const initialState: State = {
   ready: false, busy: false, status: 'Connecting', blocks: [], commands: [], history: [], nextId: 0, tokens: 0,
   version: '', capabilities: {read: false, search: false}, agents: {}, recentModels: [],
   logo: CLOUD_LOGO,
-  settings: {model: '', cwd: '', approval: 'ask', reasoning: {enabled: true, visible: true, effort: null, max_tokens: null}},
+  settings: {model: '', cwd: '', approval: 'on_request', reasoning: {enabled: true, visible: true, effort: null, max_tokens: null}},
 };
 export function reduce(state: State, message: ServerMessage): State {
   const now = Date.now();
