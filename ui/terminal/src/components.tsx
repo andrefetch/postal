@@ -9,6 +9,7 @@ import {HitBox} from './mouse.js';
 import {agentFinished} from './agents.js';
 import type {LatticeStatus} from './LatticeLoader.js';
 import {toolSummary, toolTarget, type ToolActivity, type ToolPresentation} from './ToolRow.js';
+import {thoughtEase} from './ThoughtLine.js';
 
 export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
 const plain = (text: string) => text;
@@ -79,19 +80,28 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
 
 export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean;
   thought?: {status: LatticeStatus; startedAt: number; finishedAt?: number; steps: string[]; open: boolean; doneLabel?: string};
+  thoughtStep?: {text: string; done: boolean; startedAt: number; finishedAt?: number};
   tool?: ToolPresentation;
 }
-export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'>): ConversationLine[] {
+export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'> & {now?: number}): ConversationLine[] {
   const lines: ConversationLine[] = [];
   const push = (text: string, color?: string, block?: number, activity = false) => {
     for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
   };
   const thinking = (status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number, steps: string[] = [], open = false, doneLabel?: string) => {
+    const collapse = status !== 'working' && !open && finishedAt !== undefined && block !== undefined && !expanded.has(-block - 1)
+      ? 1 - thoughtEase(((activity?.now ?? Date.now()) - finishedAt) / 350, true) : 0;
+    const traceOpen = open || collapse > 0;
     lines.push({text: status === 'working' ? 'Thinking…' : doneLabel ?? 'Thought for', block, activity: status === 'working',
-      thought: {status, startedAt, finishedAt, steps, open, doneLabel}});
-    if (open) {
-      const visible = status === 'working' ? steps.slice(-4) : steps;
-      for (const [index, step] of visible.entries()) push(`  ${status !== 'working' || index < visible.length - 1 ? '✓' : '•'} ${status === 'working' ? fit(step, width - 4) : step}`, status === 'working' && index === visible.length - 1 ? colors.muted : colors.dim, block);
+      thought: {status, startedAt, finishedAt, steps, open: traceOpen, doneLabel}});
+    if (traceOpen) {
+      const visible = steps;
+      const folding = open ? visible : visible.slice(0, Math.ceil(visible.length * collapse));
+      for (const [index, step] of folding.entries()) {
+        const done = status !== 'working' || index < visible.length - 1;
+        lines.push({text: `   ${done ? '✓' : '•'} ${fit(step, width - 5)}`,
+          thoughtStep: {text: step, done, startedAt, finishedAt}});
+      }
     }
   };
   const pushTool = (item: ToolActivity, id: number, open: boolean, indent = 0) => {

@@ -142,22 +142,21 @@ test('approval defaults to reject and approval shortcuts are explicit', async ()
   assert.deepEqual(backend.requests.at(-1)!.params, {approvalId: 'approval-2', approved: true});
 });
 
-test('thinking uses a collapsible sparkle ThoughtLine while tools retain their lattice', async () => {
+test('thinking uses a collapsible ThoughtLine with the compact lattice', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   backend.emit({type: 'turn_start', text: 'Inspect the project', files: [], web: false});
   backend.emit({type: 'agent_event', event: {type: 'reasoning_delta', agent_id: 'main', parent_agent_id: null,
     data: {content: 'Reading the supplied question\nConsidering the relevant code'}}});
   await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
-  assert.ok(app.lastFrame()?.includes('✦ Thinking…'));
-  assert.ok(!/[\u2801-\u28ff]{2}/.test(app.lastFrame() ?? ''));
+  assert.match(app.lastFrame() ?? '', /[\u2801-\u28ff]{2} Thinking…/);
   app.stdin.write('\x0f');
   await until(() => !app.lastFrame()?.includes('Considering the relevant code'));
   app.stdin.write('\x0f');
   await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
   backend.emit({type: 'agent_event', event: {type: 'reasoning_complete', agent_id: 'main', parent_agent_id: null, data: {}}});
   await until(() => app.lastFrame()?.includes('Thought for') ?? false);
-  assert.ok(!app.lastFrame()?.includes('Considering the relevant code'));
+  await until(() => !app.lastFrame()?.includes('Considering the relevant code'));
   app.stdin.write('\x0f');
   await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
   backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,

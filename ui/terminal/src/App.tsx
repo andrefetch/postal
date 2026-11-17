@@ -9,7 +9,7 @@ import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './e
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
 import {LoadingText, useActivityFrame} from './activity.js';
-import ThoughtLine from './ThoughtLine.js';
+import ThoughtLine, {ThoughtStep} from './ThoughtLine.js';
 import PixelSnow, {type SnowRect} from './PixelSnow.js';
 import ToolRow from './ToolRow.js';
 
@@ -66,7 +66,10 @@ export function TerminalView(props: ViewProps) {
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
         {line.tool ? <ToolRow tool={line.tool} width={dimensions.width} now={animate ? Date.now() : pausedAt.current!} animate={animate}/>
+          : line.thoughtStep ? <ThoughtStep text={line.thoughtStep.text} done={line.thoughtStep.done} width={dimensions.width}
+            elapsed={Math.max(0, ((line.thoughtStep.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thoughtStep.startedAt) / 1000)}/>
           : line.thought ? <ThoughtLine working={line.thought.status === 'working'} label="Thinking…" doneLabel={line.thought.doneLabel ?? 'Thought for'}
+            outcome={line.thought.status === 'error' ? 'error' : 'done'}
             steps={line.thought.steps} open={line.thought.open} headOnly width={dimensions.width} paused={!animate} finishedAt={line.thought.finishedAt}
             elapsed={Math.max(0, ((line.thought.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thought.startedAt) / 1000)}/>
           : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
@@ -99,7 +102,10 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   const savedDraft = useRef<Draft>(emptyDraft()), quitting = useRef(false);
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
-  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded, state), [state.blocks, dimensions.width, expanded, state.agents, state.busy, state.status]);
+  const settlingThoughts = state.blocks.some(block => block.kind === 'reasoning' && block.finishedAt !== undefined && Date.now() - block.finishedAt < 350);
+  const thoughtSettleFrame = useActivityFrame(settlingThoughts);
+  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded, {...state, now: Date.now()}),
+    [state.blocks, dimensions.width, expanded, state.agents, state.busy, state.status, thoughtSettleFrame]);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const report = useCallback((error: unknown) => setToast(error instanceof Error ? error.message : String(error)), []);
   const request = useCallback((method: string, params: Record<string, unknown> = {}) => backend.request(method, params).catch(report), [backend, report]);
