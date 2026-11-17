@@ -3,6 +3,7 @@ import type {AgentEvent, AgentRecord} from './protocol.js';
 export interface AgentTool {
   callId: string; name: string; args: Record<string, unknown>;
   status: 'running' | 'completed' | 'failed' | 'cancelled'; output: string;
+  startedAt?: number; finishedAt?: number; error?: string; exitCode?: number; diff?: string;
 }
 export interface AgentActivity extends AgentRecord {tools: AgentTool[]; phase: string}
 export const agentFinished = (status: string) => ['completed', 'failed', 'cancelled', 'timed_out'].includes(status);
@@ -23,7 +24,7 @@ export function updateAgent(previous: AgentActivity | undefined, event: AgentEve
   }
   if (type === 'tool_call_start') agent = {...agent, phase: `Running ${data.name}`, tools: [
     ...agent.tools.filter(tool => tool.callId !== data.call_id),
-    {callId: data.call_id, name: data.name, args: data.arguments ?? {}, status: 'running', output: ''} as AgentTool,
+    {callId: data.call_id, name: data.name, args: data.arguments ?? {}, status: 'running', output: '', startedAt: Date.now()} as AgentTool,
   ].slice(-20)};
   if (type === 'tool_progress' || type === 'tool_call_complete') {
     if (!agent.tools.some(tool => tool.callId === data.call_id)) agent = {...agent, tools: [...agent.tools,
@@ -31,6 +32,7 @@ export function updateAgent(previous: AgentActivity | undefined, event: AgentEve
     agent = {...agent, phase: type === 'tool_call_complete' ? 'Thinking…' : agent.phase, tools: agent.tools.map(tool =>
       tool.callId !== data.call_id ? tool : {...tool,
         status: type === 'tool_progress' ? 'running' : data.success ? 'completed' : 'failed',
+        ...(type === 'tool_call_complete' ? {finishedAt: Date.now(), error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
         output: (type === 'tool_progress' ? tool.output + (data.content ?? '') : [data.output, data.error, data.diff].filter(Boolean).join('\n')).slice(-4000),
       })};
   }
@@ -39,7 +41,7 @@ export function updateAgent(previous: AgentActivity | undefined, event: AgentEve
   if (type === 'usage') agent = {...agent, usage: data.usage};
   if (type === 'agent_error') agent = {...agent, status: 'failed', error: data.error};
   if (agentFinished(agent.status)) agent = {...agent, phase: agent.status.replaceAll('_', ' '), tools: agent.tools.map(tool => tool.status === 'running'
-    ? {...tool, status: agent.status === 'completed' ? 'completed' : agent.status === 'failed' ? 'failed' : 'cancelled'} : tool)};
+    ? {...tool, finishedAt: Date.now(), status: agent.status === 'completed' ? 'completed' : agent.status === 'failed' ? 'failed' : 'cancelled'} : tool)};
   return agent;
 }
 

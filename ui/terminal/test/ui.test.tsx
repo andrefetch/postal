@@ -142,6 +142,27 @@ test('approval defaults to reject and approval shortcuts are explicit', async ()
   assert.deepEqual(backend.requests.at(-1)!.params, {approvalId: 'approval-2', approved: true});
 });
 
+test('completed tools show a concise result and expand to reveal full output', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  backend.emit({type: 'turn_start', text: 'Read the file', files: [], web: false});
+  backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
+    data: {call_id: 'read-1', name: 'read', arguments: {path: 'src/app.py'}}}});
+  await until(() => app.lastFrame()?.includes('Running') ?? false);
+  backend.emit({type: 'agent_event', event: {type: 'tool_call_complete', agent_id: 'main', parent_agent_id: null,
+    data: {call_id: 'read-1', success: true, output: 'Full file contents\nSecond line', exit_code: 0}}});
+  await until(() => app.lastFrame()?.includes('exit 0 · 2 lines of output') ?? false);
+  assert.ok(app.lastFrame()?.includes('Done'));
+  assert.ok(!app.lastFrame()?.includes('Full file contents'));
+  app.stdin.write('\x0f');
+  await until(() => app.lastFrame()?.includes('Full file contents') ?? false);
+  assert.ok(app.lastFrame()?.includes('path  src/app.py'));
+  app.stdin.write('\x0f');
+  await until(() => !app.lastFrame()?.includes('Full file contents'));
+  backend.emit({type: 'turn_end', status: 'Ready'});
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+});
+
 test('subagents show their live tools inline and in the agent activity view', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
   await until(() => app.lastFrame()?.includes('Ready') ?? false);

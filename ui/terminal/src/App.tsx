@@ -11,6 +11,7 @@ import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
 import {LoadingText, useActivityFrame} from './activity.js';
 import LatticeLoader from './LatticeLoader.js';
 import PixelSnow, {type SnowRect} from './PixelSnow.js';
+import ToolRow from './ToolRow.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -64,7 +65,8 @@ export function TerminalView(props: ViewProps) {
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
-        {line.lattice ? <LatticeLoader status={line.lattice.status} label={line.text}
+        {line.tool ? <ToolRow tool={line.tool} width={dimensions.width} now={animate ? Date.now() : pausedAt.current!} animate={animate}/>
+          : line.lattice ? <LatticeLoader status={line.lattice.status} label={line.text}
           elapsed={Math.max(0, ((line.lattice.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.lattice.startedAt) / 1000)}/>
           : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}

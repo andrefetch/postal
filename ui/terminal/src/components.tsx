@@ -6,8 +6,9 @@ import wrapAnsi from 'wrap-ansi';
 import {clean, cursorRow, fit, visualLines, type Draft} from './editor.js';
 import type {Block, State} from './state.js';
 import {HitBox} from './mouse.js';
-import {agentFinished, toolLabel} from './agents.js';
+import {agentFinished} from './agents.js';
 import type {LatticeStatus} from './LatticeLoader.js';
+import {toolSummary, toolTarget, type ToolActivity, type ToolPresentation} from './ToolRow.js';
 
 export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
 const plain = (text: string) => text;
@@ -78,6 +79,7 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
 
 export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean;
   lattice?: {status: LatticeStatus; startedAt: number; finishedAt?: number};
+  tool?: ToolPresentation;
 }
 export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'>): ConversationLine[] {
   const lines: ConversationLine[] = [];
@@ -86,6 +88,12 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
   };
   const thinking = (text: string, status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number) => {
     lines.push({text, block, activity: status === 'working', lattice: {status, startedAt, finishedAt}});
+  };
+  const pushTool = (item: ToolActivity, id: number, open: boolean, indent = 0) => {
+    lines.push({text: `${item.name} ${toolTarget(item.args)}`, block: id, activity: item.status === 'running',
+      tool: {activity: item, expanded: open, indent}});
+    const summary = toolSummary(item);
+    if (summary) push(`${' '.repeat(indent)}  └ ${fit(summary, width - indent - 4)}`, item.status === 'failed' ? colors.muted : colors.dim, id);
   };
   for (const block of blocks) {
     if (block.kind === 'agent') {
@@ -98,10 +106,9 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       if (agent.goal) push(`${prefix}  ${fit(clean(agent.goal).replaceAll('\n', ' '), width - prefix.length - 2)}`, colors.dim);
       const tools = open ? agent.tools : agent.tools.filter((tool, index) => tool.status === 'running' || index >= agent.tools.length - 3);
       for (const tool of tools) {
-        const running = tool.status === 'running' && !finished;
-        push(`${prefix}  ${running ? '' : tool.status === 'completed' ? '✓ ' : '× '}${fit(clean(toolLabel(tool)).replaceAll('\n', ' '), width - prefix.length - 6)}`, colors.muted, block.id, running);
+        pushTool(tool, block.id, open, prefix.length + 2);
         const output = clean(tool.output).split('\n').filter(Boolean);
-        if (output.length) for (const line of output.slice(open ? -4 : -1)) push(`${prefix}    ${fit(line, width - prefix.length - 4)}`, colors.dim);
+        if (open && output.length) for (const line of output.slice(-4)) push(`${prefix}    │ ${fit(line, width - prefix.length - 6)}`, colors.dim);
       }
       if (!finished && !tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running');
       if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text);
@@ -109,13 +116,12 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
     } else if (block.kind === 'tool' || block.kind === 'reasoning') {
       const open = expanded.has(block.id);
       const active = block.status === 'running';
-      const status = block.kind === 'reasoning' || active ? '' : block.status === 'completed' ? '✓ ' : '× ';
-      const summary = block.kind === 'reasoning' ? 'Thinking…' : `${status}${block.title}  ${Object.values(block.args ?? {}).find(value => typeof value === 'string') ?? ''}`;
       if (block.kind === 'reasoning') thinking(`${open ? '⌄' : '›'} Thinking`, active ? 'working' : block.status === 'completed' ? 'done' : 'error', block.startedAt ?? 0, block.finishedAt, block.id);
-      else push(`${open ? '⌄' : '›'} ${fit(summary, width - (active ? 5 : 2))}`, colors.muted, block.id, active);
+      else pushTool({name: block.title ?? 'Tool', args: block.args ?? {}, status: block.status ?? 'completed', output: block.text,
+        startedAt: block.startedAt, finishedAt: block.finishedAt, error: block.error, exitCode: block.exitCode, diff: block.diff}, block.id, open);
       if (open) {
-        if (block.args) push(clean(JSON.stringify(block.args, null, 2)), colors.dim);
-        push(clean(block.text), colors.muted);
+        if (block.args) for (const [name, value] of Object.entries(block.args)) push(`  │ ${name}  ${clean(typeof value === 'string' ? value : JSON.stringify(value))}`, colors.dim, block.id);
+        for (const line of clean(block.text).split('\n')) push(`  │ ${line}`, colors.muted, block.id);
       }
     } else {
       if (lines.length) push('');
