@@ -132,7 +132,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Read
     } else if (item.status === 'running') {
       const preview = clean(item.output).replaceAll('\r', '').split('\n').filter(line => line.trim()).slice(-2);
       detail(preview[0] ?? 'Waiting for output…');
-      detail(preview[1] ?? '');
+      if (preview[1]) detail(preview[1]);
     } else if (item.status === 'failed') {
       const error = toolError(item);
       const preview = wrapAnsi(error.slice(0, 2).join(' '), detailWidth, {hard: true}).split('\n').slice(0, 2);

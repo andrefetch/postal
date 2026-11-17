@@ -30,13 +30,14 @@ test('result summaries use real metadata, preserve zero counts, and recognize te
   assert.equal(diff.removed, 1);
 });
 
-test('live previews reserve two rows, edit previews fold, and errors stay visible', () => {
+test('live previews use only populated rows, edit previews fold, and errors stay visible', () => {
   const running = block(1, 'bash', {status: 'running', finishedAt: undefined, text: ''});
   const first = conversationLines([running], 60, new Set(), context(2100));
+  const single = conversationLines([{...running, text: '\nlatest\n\n'}], 60, new Set(), context(2100));
   const progress = conversationLines([{...running, text: 'old\nrecent\nlatest'}], 60, new Set(), context(2100));
-  assert.equal(first.length, 3);
+  assert.deepEqual(first.slice(1).map(line => line.text), ['  │ Waiting for output…']);
+  assert.deepEqual(single.slice(1).map(line => line.text), ['  │ latest']);
   assert.equal(progress.length, 3);
-  assert.ok(first[1]!.text.includes('Waiting for output'));
   assert.ok(progress[1]!.text.includes('recent') && progress[2]!.text.includes('latest'));
   assert.ok(!progress.some(line => line.text.includes('old')));
   const edit = block(2, 'edit', {diff: '--- a/x\n+++ b/x\n-old\n+new\n+another\n+last', output: '', metadata: {replaced_count: 1}});

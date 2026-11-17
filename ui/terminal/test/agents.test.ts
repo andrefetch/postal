@@ -17,6 +17,11 @@ test('interleaved subagent tools and progress are attributed to each agent and s
   }
   event('a', 'tool_call_start', {call_id: 'same', name: 'grep', arguments: {pattern: 'auth'}});
   event('b', 'tool_call_start', {call_id: 'same', name: 'read', arguments: {path: 'routes.py'}});
+  const waiting = conversationLines(state.blocks, 80, new Set(), state);
+  for (const id of ['a', 'b']) {
+    assert.deepEqual(waiting.filter(line => line.detailKey === agentToolKey(id, 'same') && !line.tool).map(line => line.text),
+      ['    │ Waiting for output…']);
+  }
   event('a', 'tool_progress', {call_id: 'same', content: 'Searching authentication'});
   event('b', 'tool_progress', {call_id: 'same', content: 'Reading routes'});
   event('a', 'text_delta', {content: 'Private chain of thought'});
