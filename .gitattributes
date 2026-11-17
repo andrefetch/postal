@@ -1,4 +1,1 @@
-*.ts linguist-language=TypeScript
-*.tsx linguist-language=TypeScript
-*.ts -linguist-generated -linguist-vendored -linguist-documentation
-*.tsx -linguist-generated -linguist-vendored -linguist-documentation
+
