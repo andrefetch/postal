@@ -4,6 +4,12 @@ ui/terminal/src/**/*.tsx linguist-language=TypeScript
 ui/terminal/test/**/*.ts linguist-language=TypeScript
 ui/terminal/test/**/*.tsx linguist-language=TypeScript
 
+# Exclude JavaScript from GitHub's language breakdown.
+*.js -linguist-detectable
+*.jsx -linguist-detectable
+*.mjs -linguist-detectable
+*.cjs -linguist-detectable
+
 # Committed esbuild output: keep the minified bundle from dominating/hiding
 # the real source languages.
 ui/terminal_bundle/** linguist-generated -linguist-detectable
