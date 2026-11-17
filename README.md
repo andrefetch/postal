@@ -23,7 +23,7 @@ postal login    # opens your browser to authorize with OpenRouter
 postal          # start the interactive TUI
 ```
 
-Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required). Set `POSTAL_UI=textual` to use the previous Textual interface instead.
+Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required).
 
 ## Usage
 
@@ -117,7 +117,7 @@ Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration
 
 Commands autocomplete as you type: `/` opens the list, typing filters it, and `↑`/`↓` select. `Tab` or `Enter` completes a partial command; `Enter` submits a completed command.
 
-The terminal opens into a single conversation column with a multiline composer. `Enter` sends, `Ctrl+J` adds a line, `Ctrl+P` opens commands, and `Ctrl+G` opens the live agent tree. Tool output and reasoning start collapsed; click a heading to expand it, or use `Ctrl+O` for the latest tool. `Esc` interrupts a turn and `Ctrl+Q` exits. See the [keyboard reference](docs/cli.md#interactive-terminal).
+The terminal opens into a single conversation column with a multiline composer. `Enter` sends, `Ctrl+J` adds a line, `Ctrl+P` opens commands, and `Ctrl+G` opens the live agent tree. Tool calls show live previews, result summaries, and elapsed times, then compact successful results automatically. Repeated reads and searches form expandable groups. Click a heading or use `Ctrl+O` for the latest result, `Alt+O` for the latest group, `Alt+A` to expand all details, and `Alt+C` to collapse them. `Esc` interrupts a turn and `Ctrl+Q` exits. See the [keyboard reference](docs/cli.md#interactive-terminal).
 
 ## Sessions
 

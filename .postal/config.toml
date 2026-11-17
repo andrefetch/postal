@@ -17,7 +17,7 @@ debug = false
 # command='python3 ./scripts/test_tool.py'
 
 [model]
-name = "deepseek/deepseek-v4.1-flash-1017"
+name = "baidu/ernie-5.5-flash-preview:free"
 temperature = 1.0
 context_window = 256000
 

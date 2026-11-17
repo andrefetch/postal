@@ -51,7 +51,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             ready = messages[0]
             self.assertEqual(ready["type"], "ready")
             self.assertNotIn("api_key", ready["settings"])
-            self.assertEqual(len(ready["logo"]), 3)
+            self.assertEqual(len(ready["logo"]), 4)
             with patch("ui.repl.commands.settings.save_model_name") as save:
                 await session.dispatch("model", {"model": "provider/new-model"})
                 save.assert_called_once_with("provider/new-model", cwd=self.cwd)

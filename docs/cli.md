@@ -14,8 +14,6 @@ postal upgrade
 
 Postal needs Python 3.11 or newer and Node.js 22 or newer (the interactive TUI is a bundled TypeScript program that runs on `node`). The npm dependencies are bundled into the package, so you never need to run `npm install` to use Postal. A `Dockerfile` and Compose file live in [`docker/`](../docker/) if you would rather run the agent sandboxed.
 
-Set `POSTAL_UI=textual` to use the previous Textual interface instead of the TypeScript one, for example on a machine without Node.
-
 When a newer release is available, Postal displays a notice when the interactive TUI starts. It never upgrades automatically; run `postal upgrade` yourself to install it.
 
 On macOS (`darwin`), `postal upgrade` detects pipx-managed installations and runs
@@ -69,7 +67,7 @@ These go before the command, or on their own with the bare `postal`.
 
 ## Interactive terminal
 
-`postal` opens a full-screen Ink interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools and reasoning are collapsed until expanded. Agent activity opens in an overlay.
+`postal` opens a full-screen Ink interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools show compact previews. Reasoning shows the latest four wrapped rows while running; expand it to read the full live text. Agent activity opens in an overlay.
 
 The prompt bar's `+` menu adds workspace text/code file references, requests web search for the next prompt, or opens slash commands. File and web chips can be removed before sending. The model picker accepts a model ID and lists models used during the session; the effort picker uses the supported reasoning levels. The arrow sends the prompt and becomes a stop button while Postal is working. Use `Tab` to reach these controls or click them. Settings changes preserve the current draft.
 
@@ -81,6 +79,9 @@ The prompt bar's `+` menu adds workspace text/code file references, requests web
 | `/`, `Ctrl+P` | Open slash commands; type to filter, arrows to select, `Tab` or `Enter` to complete |
 | `Ctrl+G` | Open or close nested agent activity |
 | `Ctrl+O` | Expand or collapse the latest tool or reasoning block |
+| `Alt+O` | Expand or collapse the latest group of reads or searches |
+| `Alt+A` | Expand all tool results and reasoning traces |
+| `Alt+C` | Collapse tool details and reasoning traces; errors remain visible |
 | `Ctrl+End` | Scroll to the latest message |
 | `PageUp` / `PageDown` | Scroll the conversation |
 | `Esc`, `Ctrl+C` | Interrupt a running turn; close a menu; reject an open approval request |
@@ -89,6 +90,8 @@ The prompt bar's `+` menu adds workspace text/code file references, requests web
 In agent activity, arrows select an agent, `Enter` runs its slash-command choice, and `c` cancels the selected agent's subtree. The selected agent's goal, status, and result appear underneath. Approval overlays show the command or diff before execution: `y` approves, while `n` or `Esc` rejects. The reject button is focused by default.
 
 Scrolling up keeps your place while a response streams. Scroll back to the bottom or press `Ctrl+End` to follow new output again. Tool output and reasoning are collapsible with a click or `Ctrl+O`.
+
+Running tools show a small lattice, a fixed two-line output preview, and an elapsed timer. Successful calls briefly settle into a checkmark, show a result summary or small edit preview, and compact after 1.6 seconds. Consecutive reads and searches form expandable groups. File paths keep their filename visible when shortened; expanding a result reveals the full arguments, output, and diff. Failed calls keep their error visible even when tool groups are collapsed.
 
 ## Examples
 

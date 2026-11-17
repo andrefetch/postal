@@ -25,10 +25,6 @@ class Repl:
         self.upgrade_notice = upgrade_notice
 
     async def run(self) -> None:
-        if os.environ.get("POSTAL_UI") == "textual":
-            from ui.textual_app import PostalApp
-            await PostalApp(self.config, resume=self.resume, upgrade_notice=self.upgrade_notice).run_async()
-            return
         if not sys.stdin.isatty():
             raise RuntimeError(
                 "The interactive TUI needs a terminal. Run `postal` from an interactive shell "
@@ -37,7 +33,7 @@ class Repl:
             )
         node = shutil.which("node")
         if node is None:
-            raise RuntimeError("The TypeScript TUI requires Node.js 22+. Install Node, or set POSTAL_UI=textual to use the legacy interface.")
+            raise RuntimeError("The TypeScript TUI requires Node.js 22+. Install Node.js 22 or later.")
         version = await asyncio.create_subprocess_exec(node, "--version", stdout=asyncio.subprocess.PIPE)
         output, _ = await version.communicate()
         try:

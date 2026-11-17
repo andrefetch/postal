@@ -33,6 +33,18 @@ class ReplTerminalTests(unittest.TestCase):
         self.assertNotIn("Node.js", str(error))
         which.assert_not_called()
 
+    def test_node_is_required_even_with_old_interface_setting(self):
+        with (
+            patch.dict("os.environ", {"POSTAL_UI": "textual"}),
+            patch("ui.repl.app.sys.stdin") as stdin,
+            patch("ui.repl.app.shutil.which", return_value=None) as which,
+        ):
+            stdin.isatty.return_value = True
+            with self.assertRaisesRegex(RuntimeError, "requires Node.js 22") as raised:
+                asyncio.run(Repl(Config()).run())
+        which.assert_called_once_with("node")
+        self.assertNotIn("textual", str(raised.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

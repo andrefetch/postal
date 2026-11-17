@@ -2,11 +2,19 @@ import {useCallback, useContext, useEffect, useMemo, useReducer, useRef, useStat
 import {Box, Text, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import {basename} from 'node:path';
 import wrapAnsi from 'wrap-ansi';
-import type {AgentRecord, Transport} from './protocol.js';
+import type {Transport} from './protocol.js';
+import {agentDetails} from './agents.js';
 import {initialState, reduce, type State} from './state.js';
 import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './editor.js';
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
+import {LoadingText, useActivityFrame} from './activity.js';
+import ThoughtLine, {ThoughtStep} from './ThoughtLine.js';
+import PixelSnow, {type SnowRect} from './PixelSnow.js';
+import ToolRow from './ToolRow.js';
+import {TOOL_COMPACT_DELAY, type DetailKey} from './toolPresentation.js';
+import {expandTools, toggleDetail} from './toolNavigation.js';
+import {useConversationScroll} from './scroll.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -15,7 +23,8 @@ export function layout(columns: number, rows: number, home: boolean, draft: Draf
   const padding = rows >= 22 ? 1 : 0;
   const inputRows = Math.min(Math.max(1, rows - 18), 5, Math.max(rows >= 22 ? 2 : 1, visualLines(draft.text, width - 6).length));
   const promptHeight = 2 + padding * 2 + inputRows + 1 + Number(sources);
-  const header = rows >= 18 ? 2 : 0, welcome = home ? rows >= 22 ? 6 : 3 : 0;
+  const header = rows >= 18 ? 2 : 0;
+  const welcome = home ? Math.max(0, Math.min(4 + Number(rows >= 22), rows - header - promptHeight - 2)) : 0;
   return {width, padding, inputRows, promptHeight, header, welcome,
     top: Math.max(0, Math.floor((rows - promptHeight) / 2) - header - welcome),
     conversation: Math.max(1, rows - header - promptHeight - 2)};
@@ -23,36 +32,60 @@ export function layout(columns: number, rows: number, home: boolean, draft: Draf
 
 export interface ViewProps extends Omit<PromptProps, 'width' | 'inputRows' | 'padding'> {
   columns: number; rows: number; lines: ConversationLine[]; scroll: number | null;
-  toggle: (id: number) => void; toast: string; overlay?: React.ReactNode;
+  toggle: (id: DetailKey) => void; toast: string; overlay?: React.ReactNode;
 }
 export function TerminalView(props: ViewProps) {
   const {state, columns, rows, draft, files, web, lines, scroll, toggle, toast, overlay} = props;
+  const animate = state.busy && !state.approval;
+  const frame = useActivityFrame(animate);
+  const pausedAt = useRef<number | undefined>(undefined);
+  if (animate) pausedAt.current = undefined;
+  else pausedAt.current ??= Date.now();
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const offset = Math.min(maxScroll, scroll ?? maxScroll);
+  const statusWidth = dimensions.width - (dimensions.width > 55 ? 28 : 0);
+  const contentX = Math.floor((columns - dimensions.width) / 2);
+  const promptY = dimensions.header + (home ? dimensions.top + dimensions.welcome : dimensions.conversation);
+  const snowExclusions: SnowRect[] = [
+    {x: 0, y: 0, width: columns, height: dimensions.header},
+    {x: contentX - 1, y: promptY, width: dimensions.width + 2, height: dimensions.promptHeight + 2},
+    home ? {x: Math.floor((columns - 22) / 2) - 1, y: dimensions.header + dimensions.top, width: 24, height: dimensions.welcome}
+      : {x: contentX - 1, y: dimensions.header, width: dimensions.width + 2, height: dimensions.conversation},
+  ];
   if (columns < 32 || rows < 10) return <Box width={columns} height={rows}><Text>Resize to at least 32 × 10. Ctrl+Q quits.</Text></Box>;
   return <Box width={columns} height={rows} flexDirection="column" alignItems="center" backgroundColor={colors.background} overflow="hidden">
+    <PixelSnow columns={columns} rows={rows} exclusions={snowExclusions} paused={!!overlay}/>
     {dimensions.header > 0 && <Box width={columns - 4} height={2} justifyContent="space-between">
-      <Text color={home ? colors.background : colors.muted}>{home ? '' : '☁  postal'}</Text>
+      <Box flexGrow={1}/>
       <Text color={colors.dim} wrap="truncate">{fit(state.settings.cwd, Math.max(10, columns - 20))}</Text>
     </Box>}
     {home ? <>
       <Box height={dimensions.top} flexShrink={0}/>
       <Box flexDirection="column" alignItems="center" height={dimensions.welcome} flexShrink={0}>
-        {state.logo.map((line, index) => <Text key={index} color={colors.text}>{line}</Text>)}
-        {dimensions.welcome > 3 && <Box marginTop={1} marginBottom={1}><Text color={colors.muted}>p o s t a l</Text></Box>}
+        {state.logo.slice(Math.max(0, state.logo.length - dimensions.welcome)).map((line, index) => <Text key={index} color={colors.text}>{line}</Text>)}
       </Box>
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
-      {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
-        onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
-        <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>
+      {lines.slice(offset, offset + dimensions.conversation).map(line => <HitBox key={line.key}
+        onClick={() => { const key = line.detailKey ?? line.block; if (key !== undefined) toggle(key); }} active={!overlay && (line.detailKey ?? line.block) !== undefined} height={1}>
+        {line.tool ? <ToolRow tool={line.tool} width={dimensions.width} now={animate ? Date.now() : pausedAt.current!} animate={animate}/>
+          : line.thoughtStep ? <ThoughtStep text={line.thoughtStep.text} done={line.thoughtStep.done} width={dimensions.width}
+            continuation={line.thoughtStep.continuation}
+            elapsed={Math.max(0, ((line.thoughtStep.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thoughtStep.startedAt) / 1000)}/>
+          : line.thought ? <ThoughtLine working={line.thought.status === 'working'} label="Thinking…" doneLabel={line.thought.doneLabel ?? 'Thought for'}
+            outcome={line.thought.status === 'error' ? 'error' : 'done'}
+            steps={line.thought.steps} open={line.thought.open} headOnly width={dimensions.width} paused={!animate} finishedAt={line.thought.finishedAt}
+            elapsed={Math.max(0, ((line.thought.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thought.startedAt) / 1000)}/>
+          : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}
     </Box>}
     <PromptBar {...props} width={dimensions.width} inputRows={dimensions.inputRows} padding={dimensions.padding} active={!overlay}/>
     <Box width={dimensions.width} height={2} paddingTop={1} justifyContent="space-between" flexShrink={0}>
-      <Text color={state.busy ? colors.accent : colors.dim} wrap="truncate">{fit(toast || `${state.busy ? '◌ ' : ''}${state.status}${state.busy ? ' · esc stop' : ` · ${state.settings.approval}`}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, dimensions.width - (dimensions.width > 55 ? 28 : 0))}</Text>
-      {dimensions.width > 55 && <Text color={colors.dim}>{scroll !== null && offset < maxScroll ? 'pgdn latest' : '/ commands    enter send'}</Text>}
+      <Box width={statusWidth} overflow="hidden">
+        <Text color={colors.dim} wrap="truncate">{fit(toast || `${state.approval ? 'Awaiting approval' : state.busy ? 'esc stop' : state.status} · ${state.settings.approval}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, statusWidth)}</Text>
+      </Box>
+      {dimensions.width > 55 && <Text color={colors.dim}>{scroll !== null && offset < maxScroll ? 'pgdn latest' : state.blocks.some(block => block.kind === 'tool' || block.kind === 'agent') ? 'ctrl+o details · alt+o group' : '/ commands    enter send'}</Text>}
     </Box>
     {overlay && <Box position="absolute" top={0} left={0} width={columns} height={rows} alignItems="center" justifyContent="center">{overlay}</Box>}
   </Box>;
@@ -66,15 +99,20 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   const [focus, setFocus] = useState<Focus>('input');
   const [files, setFiles] = useState<string[]>([]), [web, setWeb] = useState(false);
   const [menu, setMenu] = useState<OpenMenu | undefined>();
-  const [expanded, setExpanded] = useState(new Set<number>());
-  const [scroll, setScroll] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState(new Set<DetailKey>());
   const [approvalScroll, setApprovalScroll] = useState(0), [approvalChoice, setApprovalChoice] = useState(false);
   const [toast, setToast] = useState(''), [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>([]), [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const savedDraft = useRef<Draft>(emptyDraft()), quitting = useRef(false);
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
-  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded), [state.blocks, dimensions.width, expanded]);
+  const settlingThoughts = state.blocks.some(block => block.kind === 'reasoning' && block.finishedAt !== undefined && Date.now() - block.finishedAt < 350);
+  const recentTool = (tool: {finishedAt?: number}) => tool.finishedAt !== undefined && Date.now() - tool.finishedAt < TOOL_COMPACT_DELAY;
+  const settlingTools = state.blocks.some(block => block.kind === 'tool' && recentTool(block)) || Object.values(state.agents).some(agent => agent.tools.some(recentTool));
+  const presentationFrame = useActivityFrame(settlingThoughts || settlingTools);
+  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded, {...state, now: Date.now()}),
+    [state.blocks, dimensions.width, expanded, state.agents, state.busy, state.status, presentationFrame]);
+  const [scroll, setScroll] = useConversationScroll(lines, dimensions.conversation);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const report = useCallback((error: unknown) => setToast(error instanceof Error ? error.message : String(error)), []);
   const request = useCallback((method: string, params: Record<string, unknown> = {}) => backend.request(method, params).catch(report), [backend, report]);
@@ -90,10 +128,11 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   }, [backend, exit]);
   useEffect(() => backend.subscribe(message => {
     if (message.type === 'ready') setHistory(message.history);
+    if (message.type === 'ready' || message.type === 'transcript') setExpanded(new Set());
     if (message.type === 'toast') setToast(message.text.split('\n')[0] ?? '');
     if (message.type === 'exit') { void quit(); return; }
     if (message.type === 'open_agents') setMenu({kind: 'agents', input: emptyDraft(), index: 0, scroll: 0});
-    if (message.type === 'transcript' || message.type === 'turn_start') setScroll(null);
+    if (message.type === 'ready' || message.type === 'transcript' || message.type === 'turn_start') setScroll(null);
     if (message.type === 'approval') { setApprovalChoice(false); setApprovalScroll(0); }
     dispatch(message);
   }), [backend, quit]);
@@ -113,9 +152,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     mouse?.on('mouse', wheel);
     return () => { mouse?.off('mouse', wheel); };
   }, [mouse, moveScroll, menu, state.approval]);
-  const toggle = (id: number) => setExpanded(current => {
-    const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next;
-  });
+  const toggle = (id: DetailKey) => setExpanded(current => toggleDetail(id, state, current));
   const submit = async () => {
     if (state.busy) { await request('cancel'); return; }
     if (!state.ready || sending || !draft.text.trim()) return;
@@ -211,7 +248,13 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     }
     if (key.ctrl && input === 'p') { openMenu('commands'); return; }
     if (key.ctrl && input === 'g') { openMenu('agents'); return; }
-    if (key.ctrl && input === 'o') { const block = state.blocks.findLast(block => ['tool', 'reasoning'].includes(block.kind)); if (block) toggle(block.id); return; }
+    if (key.ctrl && input === 'o') { setExpanded(current => expandTools('latest', state, current)); return; }
+    if (key.meta && ['o', 'a', 'c'].includes(input)) {
+      const mode = input === 'o' ? 'group' : input === 'a' ? 'all' : 'none';
+      setExpanded(current => expandTools(mode, state, current));
+      setToast(input === 'o' ? 'Toggled latest tool group' : input === 'a' ? 'Expanded tool details' : 'Collapsed tool details');
+      return;
+    }
     if (key.ctrl && key.end) { setScroll(null); return; }
     if (key.pageUp || key.pageDown) { moveScroll((key.pageUp ? -1 : 1) * Math.max(1, dimensions.conversation - 2)); return; }
     if (key.meta && (key.upArrow || key.downArrow)) {
@@ -238,12 +281,12 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     const visible = Math.max(1, panelHeight - 7), start = Math.min(approvalScroll, Math.max(0, preview.length - visible));
     overlay = <Box flexDirection="column" width={panelWidth} height={panelHeight} paddingX={2} paddingY={1} backgroundColor={colors.menu} borderStyle="round" borderColor={colors.accent}>
       <Text bold color={colors.text}>{approval.dangerous ? '! ' : ''}Permission required · {approval.tool}</Text>
-      <Box flexDirection="column" height={visible} marginY={1} overflow="hidden">{preview.slice(start, start + visible).map((line, index) => <Text key={index} color={line.startsWith('+') ? '#b8d9b0' : line.startsWith('-') ? '#dfa3ae' : colors.muted} wrap="truncate">{line || ' '}</Text>)}</Box>
+      <Box flexDirection="column" height={visible} marginY={1} overflow="hidden">{preview.slice(start, start + visible).map((line, index) => <Text key={index} color={line.startsWith('+') ? colors.text : line.startsWith('-') ? colors.dim : colors.muted} wrap="truncate">{line || ' '}</Text>)}</Box>
       <Box gap={3}><HitBox onClick={() => respond(false)}><Text inverse={!approvalChoice}> Reject [n] </Text></HitBox><HitBox onClick={() => respond(true)}><Text inverse={approvalChoice}> Approve [y] </Text></HitBox></Box>
     </Box>;
   } else if (menu?.kind === 'agents') {
-    const record: AgentRecord | undefined = agents[selected];
-    const details = wrapAnsi(clean(record ? [record.goal, record.error || record.result || 'Working…'].join('\n\n') : 'No delegated agents yet.'), Math.max(1, panelWidth - 6), {hard: true}).split('\n');
+    const record = agents[selected];
+    const details = wrapAnsi(clean(record ? agentDetails(record) : 'No delegated agents yet.'), Math.max(1, panelWidth - 6), {hard: true}).split('\n');
     overlay = <Box flexDirection="column" width={panelWidth} height={panelHeight} paddingX={2} paddingY={1} backgroundColor={colors.menu} borderStyle="round" borderColor={colors.line}>
       <Text bold color={colors.text}>Agent activity</Text>
       {choices.slice(Math.max(0, selected - 3), Math.max(0, selected - 3) + 4).map(choice => <Text key={choice.key} color={choice.key === record?.agent_id ? colors.accent : colors.muted}>{fit(choice.label, panelWidth - 6)}</Text>)}
