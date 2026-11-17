@@ -18,8 +18,8 @@ const markdown = new Marked(markedTerminal({reflowText: false, showSectionPrefix
   heading: plain, firstHeading: plain, codespan: plain, link: plain, href: plain,
   tableOptions: {style: {head: [], border: []}},
 }) as any, {renderer: {code: ({text}) => `${clean(text).split('\n').map(line => `  ${line}`).join('\n')}\n\n`}});
-export type Focus = 'input' | 'add' | 'model' | 'effort' | 'send';
-export const focusOrder: Focus[] = ['input', 'add', 'model', 'effort', 'send'];
+export type Focus = 'input' | 'add' | 'model' | 'effort';
+export const focusOrder: Focus[] = ['input', 'add', 'model', 'effort'];
 
 export function Editor({draft, width, rows, focused, placeholder = 'Ask anything…'}: {
   draft: Draft; width: number; rows: number; focused: boolean; placeholder?: string;
@@ -73,8 +73,6 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
       {!narrow && <Text color={colors.line}> · </Text>}
       <Control label={`${fit(effort[0]!.toUpperCase() + effort.slice(1), narrow ? 4 : 7)} ▾`} selected={focus === 'effort'} disabled={disabled} onClick={() => active && action('effort')}/>
       <Box flexGrow={1}/>
-      <Control label={state.busy ? '■' : '↑'} width={3} selected={focus === 'send'} strong
-        disabled={!state.ready || sending || (!state.busy && !draft.text.trim())} onClick={() => active && action('send')}/>
     </Box>
   </Box>;
 }

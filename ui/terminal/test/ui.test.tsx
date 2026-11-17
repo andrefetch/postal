@@ -48,7 +48,7 @@ test('centered home and prompt controls fit narrow, short, and wide terminals', 
       assert.ok(lines.length <= rows!, `${columns}x${rows}: ${lines.length} lines`);
       assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
       assert.ok(frame.includes('Ask anything'));
-      assert.ok(frame.includes('↑'));
+      assert.ok(!frame.includes('↑'));
       assert.ok(frame.includes('Ready · ask'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
       if (files.length) assert.ok(frame.includes('app.py ×'));
       if (web) assert.ok(frame.includes('Web ×'));

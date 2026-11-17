@@ -167,8 +167,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   };
   const action = (target: Focus) => {
     setFocus(target);
-    if (target === 'send') void submit();
-    else if (target !== 'input' && state.ready && !state.busy && !sending) openMenu(target === 'add' ? 'context' : target);
+    if (target !== 'input' && state.ready && !state.busy && !sending) openMenu(target === 'add' ? 'context' : target);
   };
   const agents = Object.values(state.agents);
   const choices: Choice[] = useMemo(() => {
@@ -263,9 +262,9 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       setHistoryIndex(next);
       const text = history[next]; setDraft(text === undefined ? savedDraft.current : {text, cursor: text.length}); return;
     }
-    if (key.tab) { setFocus(focusOrder[(focusOrder.indexOf(focus) + (key.shift ? 4 : 1)) % focusOrder.length]!); return; }
+    if (key.tab) { setFocus(focusOrder[(focusOrder.indexOf(focus) + (key.shift ? focusOrder.length - 1 : 1)) % focusOrder.length]!); return; }
     if ((key.return && (key.shift || key.meta)) || (key.ctrl && input === 'j') || input === '\n') { setDraft(current => insert(current, '\n')); setFocus('input'); return; }
-    if (key.return) { if (focus === 'input' || focus === 'send') void submit(); else action(focus); return; }
+    if (key.return) { if (focus === 'input') void submit(); else action(focus); return; }
     if (focus === 'input') {
       if (input === '/' && !draft.text) { openMenu('commands'); return; }
       setDraft(current => edit(current, input, key, dimensions.width - 6));
