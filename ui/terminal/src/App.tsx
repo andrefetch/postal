@@ -9,6 +9,7 @@ import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './e
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
 import {HitBox, MouseContext, type MouseEvent} from './mouse.js';
 import {LoadingText, useActivityFrame} from './activity.js';
+import LatticeLoader from './LatticeLoader.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -31,6 +32,9 @@ export function TerminalView(props: ViewProps) {
   const {state, columns, rows, draft, files, web, lines, scroll, toggle, toast, overlay} = props;
   const animate = state.busy && !state.approval;
   const frame = useActivityFrame(animate);
+  const pausedAt = useRef<number | undefined>(undefined);
+  if (animate) pausedAt.current = undefined;
+  else pausedAt.current ??= Date.now();
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
@@ -50,7 +54,9 @@ export function TerminalView(props: ViewProps) {
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
-        {line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
+        {line.lattice ? <LatticeLoader row={line.lattice.row} status={line.lattice.status} label={line.text}
+          elapsed={Math.max(0, ((line.lattice.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.lattice.startedAt) / 1000)}/>
+          : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}
     </Box>}
     <PromptBar {...props} width={dimensions.width} inputRows={dimensions.inputRows} padding={dimensions.padding} active={!overlay}/>

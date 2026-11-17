@@ -3,12 +3,14 @@ import {finishAgents, updateAgent, type AgentActivity} from './agents.js';
 export interface Block {
   id: number; kind: 'user' | 'assistant' | 'notice' | 'reasoning' | 'tool' | 'agent'; text: string; agentId?: string;
   title?: string; callId?: string; status?: string; args?: Record<string, unknown>; files?: string[]; web?: boolean;
+  startedAt?: number; finishedAt?: number;
 }
 export interface State {
   ready: boolean; busy: boolean; status: string; settings: Settings; blocks: Block[]; logo: string[];
   commands: {name: string; description: string}[]; history: string[]; version: string;
   capabilities: {read: boolean; search: boolean}; agents: Record<string, AgentActivity>; approval?: Approval;
   nextId: number; assistant?: number; reasoning?: number; tokens: number; recentModels: string[];
+  turnStartedAt?: number;
 }
 export const CLOUD_LOGO = ['      ████████        ', '    ██████████████    ', '  ██████████████████  ', '██████████████████████'];
 export const initialState: State = {
@@ -18,6 +20,7 @@ export const initialState: State = {
   settings: {model: '', cwd: '', approval: 'ask', reasoning: {enabled: true, visible: true, effort: null, max_tokens: null}},
 };
 export function reduce(state: State, message: ServerMessage): State {
+  const now = Date.now();
   const add = (block: Omit<Block, 'id'>): State => ({...state, nextId: state.nextId + 1, blocks: [...state.blocks, {...block, id: state.nextId}]});
   switch (message.type) {
     case 'ready': return {...state, ...message, ready: true, status: 'Ready', recentModels: [message.settings.model],
@@ -27,12 +30,16 @@ export function reduce(state: State, message: ServerMessage): State {
     case 'transcript': return {...state, blocks: message.messages.map((block, id) => ({id, kind: block.role, text: block.text})),
       nextId: message.messages.length, assistant: undefined, reasoning: undefined, agents: {}};
     case 'turn_start': return {...add({kind: 'user', text: message.text, files: message.files, web: message.web}),
-      busy: true, status: 'Thinking', assistant: undefined, reasoning: undefined};
+      busy: true, status: 'Thinking', assistant: undefined, reasoning: undefined, turnStartedAt: now};
     case 'turn_end': return {...state, busy: false, status: message.status, assistant: undefined, reasoning: undefined,
       agents: finishAgents(state.agents, message.status === 'Interrupted' ? 'cancelled' : message.status === 'Ready' ? 'completed' : 'failed'),
-      blocks: state.blocks.map(block => block.status === 'running' ? {...block, status: message.status === 'Interrupted' ? 'cancelled' : 'completed'} : block)};
+      blocks: state.blocks.map(block => block.status === 'running' ? {...block, status: message.status === 'Interrupted' ? 'cancelled' : message.status === 'Ready' ? 'completed' : 'failed', finishedAt: now} : block)};
     case 'notice': return add({kind: 'notice', text: message.text});
-    case 'fatal': return {...add({kind: 'notice', text: message.message}), ready: false, busy: false, status: 'Disconnected', agents: finishAgents(state.agents, 'failed')};
+    case 'fatal': {
+      const next = add({kind: 'notice', text: message.message});
+      return {...next, ready: false, busy: false, status: 'Disconnected', agents: finishAgents(state.agents, 'failed'),
+        blocks: next.blocks.map(block => block.status === 'running' ? {...block, status: 'failed', finishedAt: now} : block)};
+    }
     case 'approval': return {...state, approval: message.approval};
     case 'approval_closed': return {...state, approval: state.approval?.id === message.id ? undefined : state.approval};
     case 'agent_event': {
@@ -50,13 +57,13 @@ export function reduce(state: State, message: ServerMessage): State {
         const reasoning = event.type === 'reasoning_delta';
         if (reasoning && !state.settings.reasoning.visible) return state;
         const key = reasoning ? 'reasoning' : 'assistant', id = state[key];
-        if (id === undefined) return {...add({kind: reasoning ? 'reasoning' : 'assistant', text: data.content ?? '', ...(reasoning ? {status: 'running'} : {})}),
+        if (id === undefined) return {...add({kind: reasoning ? 'reasoning' : 'assistant', text: data.content ?? '', ...(reasoning ? {status: 'running', startedAt: now} : {})}),
           [key]: state.nextId, status: reasoning ? 'Thinking' : 'Responding'};
         return {...state, blocks: state.blocks.map(block => block.id === id ? {...block, text: block.text + (data.content ?? '')} : block)};
       }
       if (event.type === 'text_complete') return {...state, assistant: undefined};
       if (event.type === 'reasoning_complete') return {...state, reasoning: undefined,
-        blocks: state.blocks.map(block => block.id === state.reasoning ? {...block, status: 'completed'} : block)};
+        blocks: state.blocks.map(block => block.id === state.reasoning ? {...block, status: 'completed', finishedAt: now} : block)};
       if (event.type === 'tool_call_start') return {...add({kind: 'tool', title: data.name, args: data.arguments,
         callId: data.call_id, status: 'running', text: ''}), status: `Running ${data.name}`};
       if (event.type === 'tool_progress' || event.type === 'tool_call_complete') return {...state,

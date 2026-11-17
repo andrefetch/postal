@@ -78,7 +78,12 @@ test('keyboard submission streams responses, preserves multiline input, and can 
 
 test('loading animates during thinking and tools, pauses for approval, and stops after interruption', async () => {
   const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
-  const spinner = () => [...stripAnsi(app.lastFrame() ?? '')].find(character => SPINNER_FRAMES.includes(character));
+  const spinner = () => {
+    const frame = stripAnsi(app.lastFrame() ?? '');
+    if (frame.includes('Awaiting approval')) return undefined;
+    return [...frame].find(character => SPINNER_FRAMES.includes(character)) ??
+      (frame.includes('●') ? frame.match(/Thinking (\d+\.\d+s)/)?.[1] : undefined);
+  };
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   assert.equal(spinner(), undefined);
   backend.emit({type: 'turn_start', text: 'Inspect this project', files: [], web: false});
