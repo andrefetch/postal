@@ -18,8 +18,8 @@ const markdown = new Marked(markedTerminal({reflowText: false, showSectionPrefix
   heading: plain, firstHeading: plain, codespan: plain, link: plain, href: plain,
   tableOptions: {style: {head: [], border: []}},
 }) as any, {renderer: {code: ({text}) => `${clean(text).split('\n').map(line => `  ${line}`).join('\n')}\n\n`}});
-export type Focus = 'input' | 'add' | 'model' | 'effort' | 'send';
-export const focusOrder: Focus[] = ['input', 'add', 'model', 'effort', 'send'];
+export type Focus = 'input' | 'model' | 'effort' | 'approval';
+export const focusOrder: Focus[] = ['input', 'model', 'effort', 'approval'];
 
 export function Editor({draft, width, rows, focused, placeholder = 'Ask anything…'}: {
   draft: Draft; width: number; rows: number; focused: boolean; placeholder?: string;
@@ -57,7 +57,9 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
   const inner = width - 6, narrow = width < 55;
   const effort = !state.settings.reasoning.enabled ? 'Off' : state.settings.reasoning.max_tokens ? 'Custom' : state.settings.reasoning.effort ?? 'Auto';
   const model = state.settings.model.split('/').at(-1) || 'Choose model';
-  const modelWidth = Math.max(6, Math.min(narrow ? 14 : 28, inner - 24));
+  const mode = state.settings.approval || 'ask';
+  const approval = {ask: 'Ask', 'on fail': 'On fail', auto: 'Auto', 'auto-edit': 'Auto-edit', 'read-only': 'Read-only', yolo: 'Yolo'}[mode] ?? 'Ask';
+  const modelWidth = Math.max(6, Math.min(narrow ? 14 : 28, inner - 32));
   const disabled = !state.ready || state.busy || sending;
   return <Box width={width} flexDirection="column" paddingX={2} paddingY={padding} borderStyle="round"
     borderColor={focus === 'input' && active ? colors.line : colors.panel} borderBackgroundColor={colors.background} backgroundColor={colors.panel} flexShrink={0}>
@@ -67,14 +69,12 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
     </Box>}
     <HitBox onClick={() => action('input')} active={active}><Editor draft={draft} width={inner} rows={inputRows} focused={focus === 'input' && active}/></HitBox>
     <Box height={1} width={inner} alignItems="center">
-      <Control label="+" width={3} selected={focus === 'add'} disabled={disabled} onClick={() => active && action('add')}/>
-      <Box width={1}/>
       <Control label={`${fit(model, modelWidth - 2)} ▾`} selected={focus === 'model'} disabled={disabled} onClick={() => active && action('model')}/>
       {!narrow && <Text color={colors.line}> · </Text>}
       <Control label={`${fit(effort[0]!.toUpperCase() + effort.slice(1), narrow ? 4 : 7)} ▾`} selected={focus === 'effort'} disabled={disabled} onClick={() => active && action('effort')}/>
+      {!narrow && <Text color={colors.line}> · </Text>}
+      <Control label={`${fit(approval, narrow ? 8 : 10)} ▾`} selected={focus === 'approval'} disabled={disabled} onClick={() => active && action('approval')}/>
       <Box flexGrow={1}/>
-      <Control label={state.busy ? '■' : '↑'} width={3} selected={focus === 'send'} strong
-        disabled={!state.ready || sending || (!state.busy && !draft.text.trim())} onClick={() => active && action('send')}/>
     </Box>
   </Box>;
 }

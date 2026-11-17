@@ -11,7 +11,7 @@ from prompt_toolkit.history import InMemoryHistory
 
 from client.llm_client import LLMClient
 from client.response import StreamEvent, StreamEventType, TextDelta, ToolCall
-from config.config import Config
+from config.config import ApprovalPolicy, Config
 from ui.bridge import BridgeSession
 
 
@@ -67,6 +67,16 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             await session.dispatch("submit", {"text": "/clear"})
             self.assertEqual(session.agent.session.turns, 0)
             self.assertIn({"type": "transcript", "messages": []}, messages)
+
+    async def test_approval_mode_changes_the_live_policy(self):
+        async with self.session() as (session, messages):
+            with self.assertRaises(ValueError):
+                await session.dispatch("approval", {"mode": "sideways"})
+            self.assertEqual(session.config.approval, ApprovalPolicy.ON_REQUEST)
+            await session.dispatch("approval", {"mode": "yolo"})
+            self.assertEqual(session.config.approval, ApprovalPolicy.YOLO)
+            self.assertEqual(session.agent.session.approval_manager.approval_policy, ApprovalPolicy.YOLO)
+            self.assertEqual(session.settings()["approval"], "yolo")
 
     async def test_approval_is_explicit_and_correlated(self):
         for approve in (True, False):

@@ -17,7 +17,10 @@ export class DemoBackend implements Transport {
   async request<T = Record<string, unknown>>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     if (method === 'model') this.settings = {...this.settings, model: String(params.model)};
     if (method === 'effort') this.settings = {...this.settings, reasoning: {...this.settings.reasoning, effort: String(params.effort)}};
-    if (method === 'model' || method === 'effort') this.emit({type: 'settings', settings: this.settings});
+    if (method === 'approval') this.settings = {...this.settings, approval: {
+      on_request: 'ask', on_fail: 'on fail', auto: 'auto', auto_edit: 'auto-edit', never: 'read-only', yolo: 'yolo',
+    }[String(params.mode)] ?? this.settings.approval};
+    if (method === 'model' || method === 'effort' || method === 'approval') this.emit({type: 'settings', settings: this.settings});
     if (method === 'submit') {
       const text = String(params.text);
       if (text === '/clear') this.emit({type: 'transcript', messages: []});

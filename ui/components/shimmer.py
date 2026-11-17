@@ -9,12 +9,6 @@ SHIMMER_WIDTH = 3.0
 SHIMMER_SPEED = 0.4
 SHIMMER_GAP = 10
 
-SHIMMERING_KINDS = frozenset({"subagent"})
-
-
-def shimmers(tool_kind: str | None) -> bool:
-    return (tool_kind or "") in SHIMMERING_KINDS
-
 
 def shimmer(label: str, frame: int) -> Text:
     head = (frame * SHIMMER_SPEED) % (len(label) + SHIMMER_GAP)

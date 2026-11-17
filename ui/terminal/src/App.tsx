@@ -16,7 +16,7 @@ import {TOOL_COMPACT_DELAY, type DetailKey} from './toolPresentation.js';
 import {expandTools, toggleDetail} from './toolNavigation.js';
 import {useConversationScroll} from './scroll.js';
 
-type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
+type MenuKind = 'model' | 'effort' | 'approval' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
 export function layout(columns: number, rows: number, home: boolean, draft: Draft, sources: boolean) {
   const width = Math.max(26, Math.min(home ? 70 : 96, columns - 4));
@@ -167,21 +167,23 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   };
   const action = (target: Focus) => {
     setFocus(target);
-    if (target === 'send') void submit();
-    else if (target !== 'input' && state.ready && !state.busy && !sending) openMenu(target === 'add' ? 'context' : target);
+    if (target !== 'input' && state.ready && !state.busy && !sending) openMenu(target);
   };
   const agents = Object.values(state.agents);
   const choices: Choice[] = useMemo(() => {
     if (!menu) return [];
     const query = menu.input.text.toLowerCase();
     switch (menu.kind) {
-      case 'context': return [
-        ...(state.capabilities.read ? [{key: 'file', label: 'Add a file', detail: 'Text and code from this workspace'}] : []),
-        ...(state.capabilities.search ? [{key: 'web', label: web ? 'Remove web search' : 'Web search', detail: 'Use live sources for this prompt'}] : []),
-        {key: 'commands', label: 'Commands', detail: 'Browse slash commands'},
-      ];
       case 'effort': return ['auto', 'minimal', 'low', 'medium', 'high', 'none'].map(value => ({key: value,
         label: value === 'none' ? 'Off' : value[0]!.toUpperCase() + value.slice(1), detail: value === 'auto' ? 'Let the model decide' : ''}));
+      case 'approval': return [
+        {key: 'on_request', label: 'Ask', detail: 'Confirm every mutating tool'},
+        {key: 'on_fail', label: 'On fail', detail: 'Run freely, ask only after a failure'},
+        {key: 'auto', label: 'Auto', detail: 'Run everything except dangerous commands'},
+        {key: 'auto_edit', label: 'Auto-edit', detail: 'Edit freely, confirm bash commands'},
+        {key: 'never', label: 'Read-only', detail: 'Reject anything that is not known safe'},
+        {key: 'yolo', label: 'Yolo', detail: 'Approve everything, including dangerous commands'},
+      ].filter(choice => choice.label.toLowerCase().startsWith(query));
       case 'model': {
         const values = [...new Set([menu.input.text.trim(), ...state.recentModels.toReversed()])].filter(Boolean);
         return values.filter(value => value.toLowerCase().includes(query)).map(value => ({key: value, label: value,
@@ -191,21 +193,20 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       case 'agents': return agents.map(agent => ({key: agent.agent_id, label: `${'  '.repeat(agent.depth)}${agent.name} · ${agent.status}`}));
       default: return [];
     }
-  }, [menu, state.capabilities, state.commands, state.recentModels, state.settings.model, state.agents, web]);
+  }, [menu, state.commands, state.recentModels, state.settings.model, state.agents]);
   const selected = Math.max(0, Math.min(menu?.index ?? 0, choices.length - 1));
   const closeMenu = () => { setMenu(undefined); setFocus('input'); };
   const choose = async (choice?: Choice) => {
     if (!menu || choice?.disabled) return;
     try {
-      if (menu.kind === 'context') {
-        if (choice?.key === 'web') { setWeb(current => !current); closeMenu(); }
-        else if (choice) openMenu(choice.key as MenuKind);
-      } else if (menu.kind === 'commands' && choice) {
+      if (menu.kind === 'commands' && choice) {
         const text = `/${choice.key} `; setDraft({text, cursor: text.length}); closeMenu();
       } else if (menu.kind === 'model' && choice) {
         await backend.request('model', {model: choice.key}); closeMenu();
       } else if (menu.kind === 'effort' && choice) {
         await backend.request('effort', {effort: choice.key}); closeMenu();
+      } else if (menu.kind === 'approval' && choice) {
+        await backend.request('approval', {mode: choice.key}); closeMenu();
       } else if (menu.kind === 'file') {
         const result = await backend.request<{path: string}>('file', {path: menu.input.text});
         setFiles(current => [...new Set([...current, result.path])]); closeMenu();
@@ -263,9 +264,9 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       setHistoryIndex(next);
       const text = history[next]; setDraft(text === undefined ? savedDraft.current : {text, cursor: text.length}); return;
     }
-    if (key.tab) { setFocus(focusOrder[(focusOrder.indexOf(focus) + (key.shift ? 4 : 1)) % focusOrder.length]!); return; }
+    if (key.tab) { setFocus(focusOrder[(focusOrder.indexOf(focus) + (key.shift ? focusOrder.length - 1 : 1)) % focusOrder.length]!); return; }
     if ((key.return && (key.shift || key.meta)) || (key.ctrl && input === 'j') || input === '\n') { setDraft(current => insert(current, '\n')); setFocus('input'); return; }
-    if (key.return) { if (focus === 'input' || focus === 'send') void submit(); else action(focus); return; }
+    if (key.return) { if (focus === 'input') void submit(); else action(focus); return; }
     if (focus === 'input') {
       if (input === '/' && !draft.text) { openMenu('commands'); return; }
       setDraft(current => edit(current, input, key, dimensions.width - 6));
@@ -294,7 +295,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       <Text color={colors.dim}>↑↓ select · c cancel · pgup/pgdn scroll · esc</Text>
     </Box>;
   } else if (menu) {
-    overlay = <Menu title={{context: 'Add to your prompt', model: 'Choose a model', effort: 'Reasoning effort', file: 'Add a workspace file', commands: 'Commands'}[menu.kind]}
+    overlay = <Menu title={{model: 'Choose a model', effort: 'Reasoning effort', approval: 'Choose an approval mode', file: 'Add a workspace file', commands: 'Commands'}[menu.kind]}
       choices={choices} selected={selected} input={['model', 'file', 'commands'].includes(menu.kind) ? menu.input : undefined}
       width={panelWidth} height={panelHeight} error={menu.error} onChoose={choice => { void choose(choice); }} onClose={closeMenu}/>;
   }
