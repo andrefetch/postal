@@ -12,8 +12,9 @@ import {LoadingText, useActivityFrame} from './activity.js';
 import ThoughtLine, {ThoughtStep} from './ThoughtLine.js';
 import PixelSnow, {type SnowRect} from './PixelSnow.js';
 import ToolRow from './ToolRow.js';
-import {closedGroupKey, groupExpanded, TOOL_COMPACT_DELAY, type DetailKey} from './toolPresentation.js';
-import {conversationToolGroups, expandTools} from './toolNavigation.js';
+import {TOOL_COMPACT_DELAY, type DetailKey} from './toolPresentation.js';
+import {expandTools, toggleDetail} from './toolNavigation.js';
+import {useConversationScroll} from './scroll.js';
 
 type MenuKind = 'context' | 'model' | 'effort' | 'file' | 'commands' | 'agents';
 interface OpenMenu {kind: MenuKind; input: Draft; index: number; error?: string; scroll: number}
@@ -22,7 +23,8 @@ export function layout(columns: number, rows: number, home: boolean, draft: Draf
   const padding = rows >= 22 ? 1 : 0;
   const inputRows = Math.min(Math.max(1, rows - 18), 5, Math.max(rows >= 22 ? 2 : 1, visualLines(draft.text, width - 6).length));
   const promptHeight = 2 + padding * 2 + inputRows + 1 + Number(sources);
-  const header = rows >= 18 ? 2 : 0, welcome = home ? 4 + Number(rows >= 22) : 0;
+  const header = rows >= 18 ? 2 : 0;
+  const welcome = home ? Math.max(0, Math.min(4 + Number(rows >= 22), rows - header - promptHeight - 2)) : 0;
   return {width, padding, inputRows, promptHeight, header, welcome,
     top: Math.max(0, Math.floor((rows - promptHeight) / 2) - header - welcome),
     conversation: Math.max(1, rows - header - promptHeight - 2)};
@@ -62,13 +64,14 @@ export function TerminalView(props: ViewProps) {
     {home ? <>
       <Box height={dimensions.top} flexShrink={0}/>
       <Box flexDirection="column" alignItems="center" height={dimensions.welcome} flexShrink={0}>
-        {state.logo.map((line, index) => <Text key={index} color={colors.text}>{line}</Text>)}
+        {state.logo.slice(Math.max(0, state.logo.length - dimensions.welcome)).map((line, index) => <Text key={index} color={colors.text}>{line}</Text>)}
       </Box>
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
-      {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
+      {lines.slice(offset, offset + dimensions.conversation).map(line => <HitBox key={line.key}
         onClick={() => { const key = line.detailKey ?? line.block; if (key !== undefined) toggle(key); }} active={!overlay && (line.detailKey ?? line.block) !== undefined} height={1}>
         {line.tool ? <ToolRow tool={line.tool} width={dimensions.width} now={animate ? Date.now() : pausedAt.current!} animate={animate}/>
           : line.thoughtStep ? <ThoughtStep text={line.thoughtStep.text} done={line.thoughtStep.done} width={dimensions.width}
+            continuation={line.thoughtStep.continuation}
             elapsed={Math.max(0, ((line.thoughtStep.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.thoughtStep.startedAt) / 1000)}/>
           : line.thought ? <ThoughtLine working={line.thought.status === 'working'} label="Thinking…" doneLabel={line.thought.doneLabel ?? 'Thought for'}
             outcome={line.thought.status === 'error' ? 'error' : 'done'}
@@ -97,7 +100,6 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   const [files, setFiles] = useState<string[]>([]), [web, setWeb] = useState(false);
   const [menu, setMenu] = useState<OpenMenu | undefined>();
   const [expanded, setExpanded] = useState(new Set<DetailKey>());
-  const [scroll, setScroll] = useState<number | null>(null);
   const [approvalScroll, setApprovalScroll] = useState(0), [approvalChoice, setApprovalChoice] = useState(false);
   const [toast, setToast] = useState(''), [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>([]), [historyIndex, setHistoryIndex] = useState<number | null>(null);
@@ -110,6 +112,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   const presentationFrame = useActivityFrame(settlingThoughts || settlingTools);
   const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded, {...state, now: Date.now()}),
     [state.blocks, dimensions.width, expanded, state.agents, state.busy, state.status, presentationFrame]);
+  const [scroll, setScroll] = useConversationScroll(lines, dimensions.conversation);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const report = useCallback((error: unknown) => setToast(error instanceof Error ? error.message : String(error)), []);
   const request = useCallback((method: string, params: Record<string, unknown> = {}) => backend.request(method, params).catch(report), [backend, report]);
@@ -129,7 +132,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     if (message.type === 'toast') setToast(message.text.split('\n')[0] ?? '');
     if (message.type === 'exit') { void quit(); return; }
     if (message.type === 'open_agents') setMenu({kind: 'agents', input: emptyDraft(), index: 0, scroll: 0});
-    if (message.type === 'transcript' || message.type === 'turn_start') setScroll(null);
+    if (message.type === 'ready' || message.type === 'transcript' || message.type === 'turn_start') setScroll(null);
     if (message.type === 'approval') { setApprovalChoice(false); setApprovalScroll(0); }
     dispatch(message);
   }), [backend, quit]);
@@ -149,18 +152,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
     mouse?.on('mouse', wheel);
     return () => { mouse?.off('mouse', wheel); };
   }, [mouse, moveScroll, menu, state.approval]);
-  const toggle = (id: DetailKey) => setExpanded(current => {
-    const group = conversationToolGroups(state.blocks, state.agents).find(group => group.key === id);
-    if (group) {
-      const next = new Set(current);
-      if (groupExpanded(group, current, Date.now())) { next.delete(group.key); next.add(closedGroupKey(group.key)); }
-      else { next.add(group.key); next.delete(closedGroupKey(group.key)); }
-      return next;
-    }
-    const block = state.blocks.find(block => block.id === id);
-    const key = typeof id === 'number' && block?.kind === 'reasoning' && block.status === 'running' ? -id - 1 : id;
-    const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next;
-  });
+  const toggle = (id: DetailKey) => setExpanded(current => toggleDetail(id, state, current));
   const submit = async () => {
     if (state.busy) { await request('cancel'); return; }
     if (!state.ready || sending || !draft.text.trim()) return;

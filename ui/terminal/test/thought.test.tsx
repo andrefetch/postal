@@ -7,6 +7,7 @@ import stripAnsi from 'strip-ansi';
 import stringWidth from 'string-width';
 import ThoughtLine, {thoughtBreath, thoughtShimmer, thoughtEase} from '../src/ThoughtLine.js';
 import {conversationLines} from '../src/components.js';
+import {expandTools, toggleDetail} from '../src/toolNavigation.js';
 
 afterEach(cleanup);
 
@@ -43,10 +44,10 @@ test('settling freezes the timer, collapses the trace, and calls onSettle once',
   assert.deepEqual(settled, [2.4]);
 });
 
-test('reasoning traces open while working, collapse on settlement, and can reopen', () => {
+test('reasoning traces preview while working, collapse on settlement, and can reopen', () => {
   const working = {id: 1, kind: 'reasoning' as const, text: 'First actual step\nSecond actual step', status: 'running', startedAt: 1000};
   const running = conversationLines([working], 60, new Set());
-  assert.ok(running[0]!.thought?.open);
+  assert.equal(running[0]!.thought?.open, false, 'the live preview can be expanded');
   assert.ok(running.some(line => line.text.includes('• Second actual step')));
   assert.equal(conversationLines([working], 60, new Set([-2])).length, 1);
   const complete = {...working, status: 'completed', finishedAt: 3400};
@@ -58,4 +59,32 @@ test('reasoning traces open while working, collapse on settlement, and can reope
   const context = {busy: false, status: 'Ready', agents: {}, now: 3400};
   assert.equal(conversationLines([complete], 60, new Set(), context).length, 3, 'fold should start at full height');
   assert.equal(conversationLines([complete], 60, new Set(), {...context, now: 3750}).length, 1, 'fold should finish after 350 ms');
+});
+
+test('live reasoning expands into full wrapped text and keeps receiving new paragraphs', () => {
+  const paragraph = 'A long live paragraph with unicode 📦 and words that must remain readable. '.repeat(8).trim();
+  const working = {id: 7, kind: 'reasoning' as const, text: `${paragraph}\nSecond actual step`, status: 'running', startedAt: 1000};
+  const state = {blocks: [working], agents: {}};
+  const preview = conversationLines(state.blocks, 40, new Set());
+  assert.equal(preview.filter(line => line.thoughtStep).length, 4);
+  assert.ok(preview.at(-1)!.text.includes('Second actual step'));
+  let expanded = toggleDetail(7, state, new Set());
+  const full = conversationLines(state.blocks, 40, expanded);
+  assert.ok(full[0]!.thought?.open);
+  assert.ok(full.length > preview.length);
+  const steps = full.flatMap(line => line.thoughtStep ? [line.thoughtStep] : []);
+  assert.equal(steps.slice(0, -1).map(row => row.text).join(''), paragraph);
+  assert.ok(full.every(line => stringWidth(line.text) <= 40));
+  assert.ok(steps.some(row => row.continuation));
+  const streamed = [{...working, text: `${working.text}\nNewest live text`}];
+  assert.ok(conversationLines(streamed, 40, expanded).at(-1)!.text.includes('Newest live text'));
+  expanded = expandTools('latest', state, expanded);
+  assert.equal(conversationLines(state.blocks, 40, expanded).length, preview.length, 'Ctrl+O returns to the short preview');
+  expanded = expandTools('all', state, expanded);
+  assert.equal(conversationLines(state.blocks, 40, expanded).length, full.length);
+  const finished = [{...working, status: 'completed', finishedAt: 2000}];
+  const context = {busy: false, status: 'Ready', agents: {}, now: 2000};
+  assert.equal(conversationLines(finished, 40, expanded, context).length, full.length);
+  assert.equal(conversationLines(finished, 40, expanded, {...context, now: 2350}).length, 1, 'even an expanded live trace settles closed');
+  assert.equal(conversationLines(state.blocks, 40, expandTools('none', state, expanded)).length, 1);
 });

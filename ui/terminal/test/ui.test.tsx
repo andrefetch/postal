@@ -5,7 +5,7 @@ import {renderToString} from 'ink';
 import {render, cleanup} from 'ink-testing-library';
 import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
-import {PostalApp, TerminalView} from '../src/App.js';
+import {layout, PostalApp, TerminalView} from '../src/App.js';
 import {initialState} from '../src/state.js';
 import type {ServerMessage, Settings, Transport} from '../src/protocol.js';
 
@@ -38,21 +38,27 @@ async function until(predicate: () => boolean) {
 
 test('centered home and prompt controls fit narrow, short, and wide terminals', () => {
   for (const [columns, rows] of [[140, 40], [100, 30], [80, 24], [50, 18], [40, 12], [32, 10]]) {
-    const frame = stripAnsi(renderToString(<TerminalView columns={columns!} rows={rows!}
-      state={{...initialState, ready: true, status: 'Ready', settings}} draft={{text: '', cursor: 0}} focus="input"
-      files={[]} web={false} sending={false} action={() => {}} removeFiles={() => {}} removeWeb={() => {}}
-      lines={[]} scroll={null} toggle={() => {}} toast=""/>, {columns}));
-    const lines = frame.split('\n');
-    assert.ok(lines.length <= rows!, `${columns}x${rows}: ${lines.length} lines`);
-    assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
-    assert.ok(frame.includes('Ask anything'));
-    assert.ok(frame.includes('↑'));
-    for (const row of initialState.logo) assert.ok(frame.includes(row.trim()), 'cloud is clipped');
-    assert.ok(!frame.includes('p o s t a l'));
-    const borderRow = lines.findIndex(line => line.includes('╭'));
-    const border = lines[borderRow]!;
-    assert.ok(Math.abs((border.indexOf('╭') + border.indexOf('╮') + 1) / 2 - columns! / 2) <= 1);
-    assert.ok(Math.abs(borderRow + 3 - rows! / 2) <= 3);
+    for (const [files, web] of [[[], false], [['app.py'], false], [[], true], [['app.py'], true]] as const) {
+      const dimensions = layout(columns!, rows!, true, {text: '', cursor: 0}, files.length > 0 || web);
+      const frame = stripAnsi(renderToString(<TerminalView columns={columns!} rows={rows!}
+        state={{...initialState, ready: true, status: 'Ready', settings}} draft={{text: '', cursor: 0}} focus="input"
+        files={[...files]} web={web} sending={false} action={() => {}} removeFiles={() => {}} removeWeb={() => {}}
+        lines={[]} scroll={null} toggle={() => {}} toast=""/>, {columns}));
+      const lines = frame.split('\n');
+      assert.ok(lines.length <= rows!, `${columns}x${rows}: ${lines.length} lines`);
+      assert.ok(lines.every(line => stringWidth(line) <= columns!), `${columns}x${rows}: horizontal overflow`);
+      assert.ok(frame.includes('Ask anything'));
+      assert.ok(frame.includes('↑'));
+      assert.ok(frame.includes('Ready · ask'), `${columns}x${rows}: status hidden with files=${files.length}, web=${web}`);
+      if (files.length) assert.ok(frame.includes('app.py ×'));
+      if (web) assert.ok(frame.includes('Web ×'));
+      for (const row of initialState.logo.slice(Math.max(0, initialState.logo.length - dimensions.welcome))) assert.ok(frame.includes(row.trim()), 'cloud is clipped');
+      assert.ok(!frame.includes('p o s t a l'));
+      const borderRow = lines.findIndex(line => line.includes('╭'));
+      const border = lines[borderRow]!;
+      assert.ok(Math.abs((border.indexOf('╭') + border.indexOf('╮') + 1) / 2 - columns! / 2) <= 1);
+      assert.ok(Math.abs(borderRow + 3 - rows! / 2) <= 3);
+    }
   }
 });
 
@@ -143,17 +149,19 @@ test('approval defaults to reject and approval shortcuts are explicit', async ()
 });
 
 test('thinking uses a collapsible ThoughtLine with the compact lattice', async () => {
-  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 30}}/>);
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   backend.emit({type: 'turn_start', text: 'Inspect the project', files: [], web: false});
   backend.emit({type: 'agent_event', event: {type: 'reasoning_delta', agent_id: 'main', parent_agent_id: null,
-    data: {content: 'Reading the supplied question\nConsidering the relevant code'}}});
+    data: {content: 'First reasoning step\nSecond step\nThird step\nFourth step\nReading the supplied question\nConsidering the relevant code'}}});
   await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
   assert.match(app.lastFrame() ?? '', /[\u2801-\u28ff]{2} Thinking…/);
+  assert.ok(!app.lastFrame()?.includes('First reasoning step'));
   app.stdin.write('\x0f');
-  await until(() => !app.lastFrame()?.includes('Considering the relevant code'));
+  await until(() => app.lastFrame()?.includes('First reasoning step') ?? false);
   app.stdin.write('\x0f');
-  await until(() => app.lastFrame()?.includes('Considering the relevant code') ?? false);
+  await until(() => !app.lastFrame()?.includes('First reasoning step'));
+  assert.ok(app.lastFrame()?.includes('Considering the relevant code'));
   backend.emit({type: 'agent_event', event: {type: 'reasoning_complete', agent_id: 'main', parent_agent_id: null, data: {}}});
   await until(() => app.lastFrame()?.includes('Thought for') ?? false);
   await until(() => !app.lastFrame()?.includes('Considering the relevant code'));
@@ -164,6 +172,44 @@ test('thinking uses a collapsible ThoughtLine with the compact lattice', async (
   await until(() => app.lastFrame()?.includes('Running') ?? false);
   assert.ok(/[\u2801-\u28ff]{2}/.test(app.lastFrame() ?? ''));
   backend.emit({type: 'turn_end', status: 'Ready'});
+});
+
+test('scrolling keeps visible content anchored while earlier thoughts and tools compact', async t => {
+  let now = 1000;
+  t.mock.method(Date, 'now', () => now);
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 80, rows: 24}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  backend.emit({type: 'turn_start', text: 'Inspect the project', files: [], web: false});
+  backend.emit({type: 'agent_event', event: {type: 'reasoning_delta', agent_id: 'main', parent_agent_id: null,
+    data: {content: 'Step one\nStep two\nStep three\nStep four'}}});
+  backend.emit({type: 'agent_event', event: {type: 'reasoning_complete', agent_id: 'main', parent_agent_id: null, data: {}}});
+  for (const call_id of ['1', '2']) {
+    backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
+      data: {call_id, name: 'read', arguments: {path: `file${call_id}`}}}});
+    backend.emit({type: 'agent_event', event: {type: 'tool_call_complete', agent_id: 'main', parent_agent_id: null,
+      data: {call_id, success: true, output: 'A complete result'}}});
+  }
+  backend.emit({type: 'notice', text: Array.from({length: 100}, (_, i) => `Visible content ${i}`).join('\n')});
+  backend.emit({type: 'turn_end', status: 'Ready'});
+  await until(() => app.lastFrame()?.includes('Visible content 99') ?? false);
+  app.stdin.write('\x1b[5~');
+  await until(() => app.lastFrame()?.includes('pgdn latest') ?? false);
+  const viewport = () => stripAnsi(app.lastFrame() ?? '').split('\n').slice(2, 14).map(line => line.trim());
+  const anchored = viewport();
+  assert.match(anchored[0]!, /Visible content/);
+  now = 1400;
+  await delay(120);
+  assert.deepEqual(viewport(), anchored, 'thought folding above the viewport must preserve the visible text');
+  now = 2700;
+  await delay(120);
+  assert.deepEqual(viewport(), anchored, 'tool compaction above the viewport must preserve the visible text');
+  backend.emit({type: 'notice', text: 'New output below the viewport'});
+  await delay(60);
+  assert.deepEqual(viewport(), anchored, 'new output must not move an anchored viewport');
+  app.stdin.write('\x1b[1;5F');
+  await until(() => app.lastFrame()?.includes('New output below the viewport') ?? false);
+  backend.emit({type: 'notice', text: 'Following the latest output again'});
+  await until(() => app.lastFrame()?.includes('Following the latest output again') ?? false);
 });
 
 test('completed tools show a concise result and expand to reveal full output', async () => {

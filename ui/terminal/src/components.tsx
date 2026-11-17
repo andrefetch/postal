@@ -10,7 +10,7 @@ import {agentFinished} from './agents.js';
 import type {LatticeStatus} from './LatticeLoader.js';
 import {agentToolKey, groupExpanded, groupSummary, groupTools, toolDetails, toolDiffPreview, toolError, toolSummary, toolTarget, TOOL_COMPACT_DELAY, type DetailKey, type ToolActivity, type ToolGroup, type ToolItem, type ToolPresentation} from './toolPresentation.js';
 import {mainTool} from './toolNavigation.js';
-import {thoughtEase} from './ThoughtLine.js';
+import {liveThoughtKey, thoughtEase, thoughtRows} from './ThoughtLine.js';
 
 export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
 const plain = (text: string) => text;
@@ -79,29 +79,35 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
   </Box>;
 }
 
-export interface ConversationLine {text: string; block?: number; detailKey?: DetailKey; group?: ToolGroup; color?: string; activity?: boolean;
+export interface ConversationLine {key: string; text: string; block?: number; detailKey?: DetailKey; group?: ToolGroup; color?: string; activity?: boolean;
   thought?: {status: LatticeStatus; startedAt: number; finishedAt?: number; steps: string[]; open: boolean; doneLabel?: string};
-  thoughtStep?: {text: string; done: boolean; startedAt: number; finishedAt?: number};
+  thoughtStep?: {text: string; done: boolean; continuation: boolean; startedAt: number; finishedAt?: number};
   tool?: ToolPresentation;
 }
 export function conversationLines(blocks: Block[], width: number, expanded: ReadonlySet<DetailKey>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'> & {now?: number}): ConversationLine[] {
   const lines: ConversationLine[] = [];
-  const push = (text: string, color?: string, block?: number, activity = false) => {
-    for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
+  let scope = 'activity', paragraph = 0;
+  const push = (text: string, color?: string, block?: number, activity = false, key = `${scope}:paragraph:${paragraph++}`) => {
+    for (const [row, line] of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n').entries()) {
+      lines.push({key: `${key}:${row}`, text: line, color, block, activity});
+    }
   };
   const thinking = (status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number, steps: string[] = [], open = false, doneLabel?: string) => {
-    const collapse = status !== 'working' && !open && finishedAt !== undefined && block !== undefined && !expanded.has(-block - 1)
+    const hidden = block !== undefined && expanded.has(-block - 1);
+    const collapse = status !== 'working' && !open && finishedAt !== undefined && block !== undefined && !hidden
       ? 1 - thoughtEase(((activity?.now ?? Date.now()) - finishedAt) / 350, true) : 0;
-    const traceOpen = open || collapse > 0;
-    lines.push({text: status === 'working' ? 'Thinking…' : doneLabel ?? 'Thought for', block, activity: status === 'working',
-      thought: {status, startedAt, finishedAt, steps, open: traceOpen, doneLabel}});
-    if (traceOpen) {
-      const visible = steps;
+    lines.push({key: `${scope}:head`, text: status === 'working' ? 'Thinking…' : doneLabel ?? 'Thought for', block, activity: status === 'working',
+      thought: {status, startedAt, finishedAt, steps, open, doneLabel}});
+    if (open || (status === 'working' && !hidden) || collapse > 0) {
+      const rows = thoughtRows(steps, width);
+      // Keep a short, advancing preview until the user explicitly opens the trace.
+      const wasOpen = block !== undefined && expanded.has(liveThoughtKey(block));
+      const visible = open || (collapse > 0 && wasOpen) ? rows : rows.slice(-4);
       const folding = open ? visible : visible.slice(0, Math.ceil(visible.length * collapse));
-      for (const [index, step] of folding.entries()) {
-        const done = status !== 'working' || index < visible.length - 1;
-        lines.push({text: `   ${done ? '✓' : '•'} ${fit(step, width - 5)}`,
-          thoughtStep: {text: step, done, startedAt, finishedAt}});
+      for (const row of status === 'working' ? visible : folding) {
+        const done = status !== 'working' || row.step < steps.length - 1;
+        lines.push({key: `${scope}:step:${row.key}`, text: `   ${row.continuation ? ' ' : done ? '✓' : '•'} ${row.text}`, block,
+          thoughtStep: {text: row.text, continuation: row.continuation, done, startedAt, finishedAt}});
       }
     }
   };
@@ -109,12 +115,15 @@ export function conversationLines(blocks: Block[], width: number, expanded: Read
   const pushTool = (item: ToolActivity, key: DetailKey, open: boolean, indent = 0) => {
     const compact = !open && item.status === 'completed' && item.finishedAt !== undefined && now - item.finishedAt >= TOOL_COMPACT_DELAY;
     const block = typeof key === 'number' ? key : undefined;
-    lines.push({text: `${item.name} ${toolTarget(item.args)}`, block, detailKey: key, activity: item.status === 'running',
+    const lineKey = `tool:${JSON.stringify(key)}`;
+    lines.push({key: `${lineKey}:head`, text: `${item.name} ${toolTarget(item.args)}`, block, detailKey: key, activity: item.status === 'running',
       tool: {activity: item, expanded: open, indent, compact}});
     const padding = ' '.repeat(indent), detailWidth = Math.max(1, width - indent - 4);
+    let detailIndex = 0;
     const detail = (text: string, color = colors.dim, full = false) => {
+      const detailKey = `${lineKey}:${open ? 'full' : 'preview'}:${detailIndex++}`;
       const content = full ? wrapAnsi(clean(text), detailWidth, {hard: true, trim: false}).split('\n') : [fit(text, detailWidth)];
-      for (const line of content) lines.push({text: `${padding}  │ ${line}`, color, detailKey: key, block});
+      for (const [row, line] of content.entries()) lines.push({key: `${detailKey}:${row}`, text: `${padding}  │ ${line}`, color, detailKey: key, block});
     };
     if (open) {
       if (item.status === 'completed' && toolSummary(item)) detail(toolSummary(item), colors.muted);
@@ -130,7 +139,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Read
       for (const line of preview) detail(line, colors.text);
     } else if (!compact) {
       const summary = toolSummary(item);
-      if (summary) lines.push({text: `${padding}  └ ${fit(summary, detailWidth)}`, color: colors.dim, detailKey: key, block});
+      if (summary) lines.push({key: `${lineKey}:summary`, text: `${padding}  └ ${fit(summary, detailWidth)}`, color: colors.dim, detailKey: key, block});
       if (item.diff) {
         const preview = toolDiffPreview(item.diff);
         for (const line of preview.lines) detail(line, line.startsWith('+') ? colors.text : colors.muted);
@@ -138,42 +147,43 @@ export function conversationLines(blocks: Block[], width: number, expanded: Read
       }
     }
   };
-  const pushTools = (items: ToolItem[], scope: string, indent = 0, forceOpen = false) => {
+  const pushTools = (items: ToolItem[], scope: string, indent = 0) => {
     for (const group of groupTools(items, scope)) {
       if (group.items.length === 1) {
         const item = group.items[0]!;
-        pushTool(item.activity, item.key, forceOpen || expanded.has(item.key), indent);
+        pushTool(item.activity, item.key, expanded.has(item.key), indent);
         continue;
       }
-      const open = forceOpen || groupExpanded(group, expanded, now);
-      lines.push({text: group.activity.name, detailKey: group.key, group, activity: group.activity.status === 'running',
+      const open = groupExpanded(group, expanded, now);
+      lines.push({key: group.key, text: group.activity.name, detailKey: group.key, group, activity: group.activity.status === 'running',
         tool: {activity: group.activity, expanded: open, indent, compact: !open, summary: groupSummary(group)}});
       for (const item of group.items) if (open || item.activity.status === 'failed') {
-        pushTool(item.activity, item.key, forceOpen || expanded.has(item.key), indent + 2);
+        pushTool(item.activity, item.key, expanded.has(item.key), indent + 2);
       }
     }
   };
   for (let index = 0; index < blocks.length; index++) {
     const block = blocks[index]!;
+    scope = `block:${block.id}`; paragraph = 0;
     if (block.kind === 'agent') {
       const agent = activity?.agents[block.agentId!];
       if (!agent) continue;
       const open = expanded.has(block.id), finished = agentFinished(agent.status);
       const prefix = '  '.repeat(Math.max(0, Math.min(3, agent.depth - 1)));
       if (lines.length) push('');
-      push(`${prefix}${open ? '⌄' : '›'} ${clean(agent.name)} · ${agent.status.replaceAll('_', ' ')} · ${agent.tools.length} tool${agent.tools.length === 1 ? '' : 's'}${agent.usage?.total_tokens ? ` · ${agent.usage.total_tokens.toLocaleString()} tokens` : ''}`, colors.text, block.id);
-      if (agent.goal) push(`${prefix}  ${fit(clean(agent.goal).replaceAll('\n', ' '), width - prefix.length - 2)}`, colors.dim);
-      pushTools(agent.tools.map(tool => ({key: agentToolKey(agent.agent_id, tool.callId), activity: tool})), agent.agent_id, prefix.length + 2, open);
-      if (!finished && !agent.tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running');
-      if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text);
-      if (open && agent.result) push(clean(agent.result), colors.muted);
+      push(`${prefix}${open ? '⌄' : '›'} ${clean(agent.name)} · ${agent.status.replaceAll('_', ' ')} · ${agent.tools.length} tool${agent.tools.length === 1 ? '' : 's'}${agent.usage?.total_tokens ? ` · ${agent.usage.total_tokens.toLocaleString()} tokens` : ''}`, colors.text, block.id, false, `${scope}:head`);
+      if (agent.goal) push(`${prefix}  ${fit(clean(agent.goal).replaceAll('\n', ' '), width - prefix.length - 2)}`, colors.dim, undefined, false, `${scope}:goal`);
+      pushTools(agent.tools.map(tool => ({key: agentToolKey(agent.agent_id, tool.callId), activity: tool})), agent.agent_id, prefix.length + 2);
+      if (!finished && !agent.tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running', `${scope}:phase`);
+      if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text, undefined, false, `${scope}:error`);
+      if (open && agent.result) push(clean(agent.result), colors.muted, undefined, false, `${scope}:result`);
     } else if (block.kind === 'tool') {
       const run = [block];
       while (blocks[index + 1]?.kind === 'tool') run.push(blocks[++index]!);
       pushTools(run.map(item => ({key: item.id, activity: mainTool(item)})), 'main');
     } else if (block.kind === 'reasoning') {
       const active = block.status === 'running';
-      const open = active ? !expanded.has(-block.id - 1) : expanded.has(block.id);
+      const open = expanded.has(active ? liveThoughtKey(block.id) : block.id);
       thinking(active ? 'working' : block.status === 'completed' ? 'done' : 'error',
         block.startedAt ?? 0, block.finishedAt, block.id, clean(block.text).split(/\n+/).map(line => line.trim()).filter(Boolean), open,
         block.status === 'cancelled' ? 'Stopped after' : block.status === 'failed' ? 'Failed after' : undefined);
@@ -189,6 +199,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Read
       push('');
     }
   }
+  scope = `activity:${activity?.turnStartedAt ?? 0}`; paragraph = 0;
   if (activity?.busy && !blocks.some(block => (block.kind === 'reasoning' || block.kind === 'tool') && block.status === 'running')) {
     if (activity.status === 'Responding') push('› Responding…', colors.muted, undefined, true);
     else thinking('working', activity.turnStartedAt ?? 0);

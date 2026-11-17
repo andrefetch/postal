@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {Box, Text} from 'ink';
 import stringWidth from 'string-width';
+import wrapAnsi from 'wrap-ansi';
 import {formatElapsed, LatticeIcon} from './LatticeLoader.js';
 import {HitBox} from './mouse.js';
 import {fit} from './editor.js';
@@ -42,8 +43,14 @@ export function thoughtShimmer(index: number, length: number, seconds: number, d
   return thoughtGrey(0.5 + 0.5 * Math.max(0, 1 - Math.abs(index + 0.5 - center) / Math.max(0.5, length * 0.5)));
 }
 
-export function ThoughtStep({text, done, elapsed, width = 80, opacity = 1}: {
-  text: string; done: boolean; elapsed: number; width?: number; opacity?: number;
+export const liveThoughtKey = (id: number) => `thought:${id}:live`;
+export function thoughtRows(steps: string[], width: number) {
+  return steps.flatMap((step, index) => wrapAnsi(step, Math.max(1, width - 5), {hard: true, trim: false}).split('\n')
+    .map((text, row) => ({text, step: index, continuation: row > 0, key: `${index}:${row}`})));
+}
+
+export function ThoughtStep({text, done, elapsed, width = 80, opacity = 1, continuation = false}: {
+  text: string; done: boolean; elapsed: number; width?: number; opacity?: number; continuation?: boolean;
 }) {
   const [enteredAt] = useState(Date.now), [entryTime, setEntryTime] = useState(Date.now);
   useEffect(() => {
@@ -56,7 +63,7 @@ export function ThoughtStep({text, done, elapsed, width = 80, opacity = 1}: {
   const entry = thoughtEase((entryTime - enteredAt) / 200, true) * opacity;
   const phase = (elapsed % 1.6) / 1.6;
   const pulse = 0.55 + 0.45 * (phase < 0.5 ? thoughtEase(phase * 2) : 1 - thoughtEase((phase - 0.5) * 2));
-  return <Text wrap="truncate">{'   '}<Text color={thoughtGrey((done ? 0.55 : pulse) * entry)}>{done ? '✓' : '•'}</Text>
+  return <Text wrap="truncate">{'   '}<Text color={thoughtGrey((done ? 0.55 : pulse) * entry)}>{continuation ? ' ' : done ? '✓' : '•'}</Text>
     <Text color={thoughtGrey((done ? 0.55 : 1) * entry)}> {fit(text, width - 5)}</Text>
   </Text>;
 }
@@ -122,9 +129,10 @@ export default function ThoughtLine({working = true, label = 'Thinking…', done
     {collapsible && hasTrace && <Text color={thoughtGrey(0.55)}> {shown ? '⌃' : '⌄'}</Text>}
   </Box>;
   if (headOnly) return head;
+  const trace = thoughtRows(steps, width);
   return <Box flexDirection="column" width={width}>
     <HitBox onClick={() => setOpen(value => !value)} active={collapsible && hasTrace}>{head}</HitBox>
-    {hasTrace && (traceShown || !collapsible) && steps.slice(0, Math.ceil(steps.length * fold)).map((step, index) =>
-      <ThoughtStep key={index} text={step} done={!working || index < steps.length - 1} elapsed={seconds} width={width} opacity={fold}/>)}
+    {hasTrace && (traceShown || !collapsible) && trace.slice(0, Math.ceil(trace.length * fold)).map(row =>
+      <ThoughtStep key={row.key} text={row.text} continuation={row.continuation} done={!working || row.step < steps.length - 1} elapsed={seconds} width={width} opacity={fold}/>)}
   </Box>;
 }

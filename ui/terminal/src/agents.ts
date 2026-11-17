@@ -35,7 +35,7 @@ export function updateAgent(previous: AgentActivity | undefined, event: AgentEve
       tool.callId !== data.call_id ? tool : {...tool,
         status: type === 'tool_progress' ? 'running' : data.success ? 'completed' : 'failed',
         ...(type === 'tool_call_complete' ? {finishedAt: Date.now(), metadata: data.metadata ?? {}, truncated: data.truncated, error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
-        output: (type === 'tool_progress' ? tool.output + (data.content ?? '') : (data.output ?? '')).slice(-4000),
+        output: type === 'tool_progress' ? tool.output + (data.content ?? '') : (data.output ?? tool.output),
       })};
   }
   if (type === 'reasoning_delta') agent = {...agent, phase: 'Thinking…'};

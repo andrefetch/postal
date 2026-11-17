@@ -67,7 +67,7 @@ These go before the command, or on their own with the bare `postal`.
 
 ## Interactive terminal
 
-`postal` opens a full-screen Ink interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools and reasoning are collapsed until expanded. Agent activity opens in an overlay.
+`postal` opens a full-screen Ink interface with a centered cloud logo and prompt bar. The bar moves below the conversation after the first message. Its input grows to five visible text rows, then scrolls. Tools show compact previews. Reasoning shows the latest four wrapped rows while running; expand it to read the full live text. Agent activity opens in an overlay.
 
 The prompt bar's `+` menu adds workspace text/code file references, requests web search for the next prompt, or opens slash commands. File and web chips can be removed before sending. The model picker accepts a model ID and lists models used during the session; the effort picker uses the supported reasoning levels. The arrow sends the prompt and becomes a stop button while Postal is working. Use `Tab` to reach these controls or click them. Settings changes preserve the current draft.
 
