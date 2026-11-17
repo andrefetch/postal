@@ -1,8 +1,3 @@
-# Force the TypeScript terminal UI into GitHub's language breakdown.
-ui/terminal/src/**/*.ts linguist-language=TypeScript
-ui/terminal/src/**/*.tsx linguist-language=TypeScript
-ui/terminal/test/**/*.ts linguist-language=TypeScript
-ui/terminal/test/**/*.tsx linguist-language=TypeScript
 
 # Exclude JavaScript from GitHub's language breakdown.
 *.js -linguist-detectable
