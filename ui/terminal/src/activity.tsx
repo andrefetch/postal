@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react';
 import {Text} from 'ink';
+import {LatticeIcon} from './LatticeLoader.js';
 
-export const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 export const FRAME_INTERVAL = 40;
 
 export function useActivityFrame(active: boolean) {
@@ -28,7 +28,7 @@ export function shimmerColor(index: number, frame: number, length: number) {
 
 export function LoadingText({text, frame}: {text: string; frame: number}) {
   const characters = [...text];
-  return <Text wrap="truncate"><Text color="#f3f3f3">{SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} </Text>
+  return <Text wrap="truncate"><LatticeIcon elapsed={frame * FRAME_INTERVAL / 1000}/>{' '}
     {characters.map((character, index) => <Text key={index} color={shimmerColor(index, frame, characters.length)}>{character}</Text>)}
   </Text>;
 }

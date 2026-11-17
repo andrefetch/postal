@@ -7,7 +7,6 @@ import stringWidth from 'string-width';
 import stripAnsi from 'strip-ansi';
 import {PostalApp, TerminalView} from '../src/App.js';
 import {initialState} from '../src/state.js';
-import {SPINNER_FRAMES} from '../src/activity.js';
 import type {ServerMessage, Settings, Transport} from '../src/protocol.js';
 
 afterEach(cleanup);
@@ -81,8 +80,7 @@ test('loading animates during thinking and tools, pauses for approval, and stops
   const spinner = () => {
     const frame = stripAnsi(app.lastFrame() ?? '');
     if (frame.includes('Awaiting approval')) return undefined;
-    return [...frame].find(character => SPINNER_FRAMES.includes(character)) ??
-      (frame.includes('●') ? frame.match(/Thinking (\d+\.\d+s)/)?.[1] : undefined);
+    return frame.match(/[\u2801-\u28ff]{2}/)?.[0];
   };
   await until(() => app.lastFrame()?.includes('Ready') ?? false);
   assert.equal(spinner(), undefined);
@@ -94,7 +92,7 @@ test('loading animates during thinking and tools, pauses for approval, and stops
   const thinkingFrame = stripAnsi(app.lastFrame() ?? '').split('\n');
   assert.ok(thinkingFrame.findIndex(line => line.includes('Thinking')) < thinkingFrame.findIndex(line => line.includes('╭')),
     'thinking animation belongs above the prompt, inside the conversation');
-  assert.ok(!thinkingFrame.slice(thinkingFrame.findIndex(line => line.includes('╰')) + 1).some(line => SPINNER_FRAMES.some(frame => line.includes(frame))),
+  assert.ok(!thinkingFrame.slice(thinkingFrame.findIndex(line => line.includes('╰')) + 1).some(line => /[\u2801-\u28ff]{2}/.test(line)),
     'footer should not contain the loading animation');
   backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
     data: {call_id: 'read-1', name: 'read', arguments: {path: 'app.py'}}}});

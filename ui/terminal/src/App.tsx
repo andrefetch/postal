@@ -54,7 +54,7 @@ export function TerminalView(props: ViewProps) {
     </> : <Box width={dimensions.width} height={dimensions.conversation} flexDirection="column" overflow="hidden" flexShrink={0}>
       {lines.slice(offset, offset + dimensions.conversation).map((line, index) => <HitBox key={offset + index}
         onClick={() => line.block !== undefined && toggle(line.block)} active={!overlay && line.block !== undefined} height={1}>
-        {line.lattice ? <LatticeLoader row={line.lattice.row} status={line.lattice.status} label={line.text}
+        {line.lattice ? <LatticeLoader status={line.lattice.status} label={line.text}
           elapsed={Math.max(0, ((line.lattice.finishedAt ?? (animate ? Date.now() : pausedAt.current!)) - line.lattice.startedAt) / 1000)}/>
           : line.activity && animate ? <LoadingText text={line.text} frame={frame}/> : <Text color={line.color} wrap="truncate">{line.text || ' '}</Text>}
       </HitBox>)}

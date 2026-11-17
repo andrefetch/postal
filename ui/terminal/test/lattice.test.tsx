@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {renderToString} from 'ink';
 import stripAnsi from 'strip-ansi';
-import LatticeLoader, {formatElapsed, latticeOpacity} from '../src/LatticeLoader.js';
+import LatticeLoader, {formatElapsed, latticeOpacity, latticeGlyphs} from '../src/LatticeLoader.js';
 import {conversationLines} from '../src/components.js';
 import {initialState, reduce} from '../src/state.js';
 
@@ -18,14 +18,14 @@ test('arrow cells follow the supplied CSS delays and opacity keyframes', () => {
 test('lattice displays its grid, working timer, and frozen success or failure labels', () => {
   for (const [status, label] of [['working', 'Thinking'], ['done', 'Done in'], ['error', 'Failed after']] as const) {
     const text = stripAnsi(renderToString(<LatticeLoader status={status} elapsed={2.4}/>, {columns: 40}));
-    assert.equal(text.split('\n').length, 3);
-    assert.equal([...text].filter(character => character === '●').length, 9);
+    assert.equal(text.split('\n').length, 1);
+    assert.equal([...text].filter(character => /[\u2800-\u28ff]/.test(character)).length, 2);
     assert.ok(text.includes(`${label} 2.4s`));
   }
   assert.equal(formatElapsed(65.2), '1m 5.2s');
   assert.equal(formatElapsed(-1), '0.0s');
   const lines = conversationLines([{id: 1, kind: 'reasoning', status: 'completed', text: '', startedAt: 1000, finishedAt: 3400}], 40, new Set());
-  assert.equal(lines.length, 3);
+  assert.equal(lines.length, 1);
   assert.ok(lines.every(line => line.lattice?.status === 'done' && line.lattice.finishedAt === 3400));
 });
 
@@ -35,6 +35,12 @@ test('reasoning failure freezes the lattice timer at disconnection', () => {
   state = reduce(state, {type: 'fatal', message: 'Connection lost'});
   assert.equal(state.busy, false);
   const lines = conversationLines(state.blocks, 40, new Set(), state).filter(line => line.lattice);
-  assert.equal(lines.length, 3);
+  assert.equal(lines.length, 1);
   assert.ok(lines.every(line => line.lattice!.status === 'error' && line.lattice!.finishedAt !== undefined));
+});
+
+test('compact lattice occupies two columns and animates using the arrow pattern', () => {
+  const frames = [0, 0.1, 0.2, 0.3, 0.4].map(time => latticeGlyphs(time).map(cell => cell.character).join(''));
+  assert.ok(frames.every(frame => [...frame].length === 2));
+  assert.ok(new Set(frames).size > 2);
 });

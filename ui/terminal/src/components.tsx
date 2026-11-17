@@ -77,16 +77,15 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
 }
 
 export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean;
-  lattice?: {row: number; status: LatticeStatus; startedAt: number; finishedAt?: number};
+  lattice?: {status: LatticeStatus; startedAt: number; finishedAt?: number};
 }
 export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'>): ConversationLine[] {
   const lines: ConversationLine[] = [];
   const push = (text: string, color?: string, block?: number, activity = false) => {
-    for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 2 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
+    for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
   };
   const thinking = (text: string, status: LatticeStatus, startedAt: number, finishedAt?: number, block?: number) => {
-    for (let row = 0; row < 3; row++) lines.push({text: row === 1 ? text : '', block, activity: status === 'working',
-      lattice: {row, status, startedAt, finishedAt}});
+    lines.push({text, block, activity: status === 'working', lattice: {status, startedAt, finishedAt}});
   };
   for (const block of blocks) {
     if (block.kind === 'agent') {
@@ -113,7 +112,7 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       const status = block.kind === 'reasoning' || active ? '' : block.status === 'completed' ? '✓ ' : '× ';
       const summary = block.kind === 'reasoning' ? 'Thinking…' : `${status}${block.title}  ${Object.values(block.args ?? {}).find(value => typeof value === 'string') ?? ''}`;
       if (block.kind === 'reasoning') thinking(`${open ? '⌄' : '›'} Thinking`, active ? 'working' : block.status === 'completed' ? 'done' : 'error', block.startedAt ?? 0, block.finishedAt, block.id);
-      else push(`${open ? '⌄' : '›'} ${fit(summary, width - (active ? 4 : 2))}`, colors.muted, block.id, active);
+      else push(`${open ? '⌄' : '›'} ${fit(summary, width - (active ? 5 : 2))}`, colors.muted, block.id, active);
       if (open) {
         if (block.args) push(clean(JSON.stringify(block.args, null, 2)), colors.dim);
         push(clean(block.text), colors.muted);
