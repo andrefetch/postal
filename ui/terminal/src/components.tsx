@@ -6,6 +6,7 @@ import wrapAnsi from 'wrap-ansi';
 import {clean, cursorRow, fit, visualLines, type Draft} from './editor.js';
 import type {Block, State} from './state.js';
 import {HitBox} from './mouse.js';
+import {agentFinished, toolLabel} from './agents.js';
 
 export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
 const plain = (text: string) => text;
@@ -75,13 +76,31 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
 }
 
 export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean}
-export function conversationLines(blocks: Block[], width: number, expanded: Set<number>): ConversationLine[] {
+export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents'>): ConversationLine[] {
   const lines: ConversationLine[] = [];
   const push = (text: string, color?: string, block?: number, activity = false) => {
     for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 2 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
   };
   for (const block of blocks) {
-    if (block.kind === 'tool' || block.kind === 'reasoning') {
+    if (block.kind === 'agent') {
+      const agent = activity?.agents[block.agentId!];
+      if (!agent) continue;
+      const open = expanded.has(block.id), finished = agentFinished(agent.status);
+      const prefix = '  '.repeat(Math.max(0, Math.min(3, agent.depth - 1)));
+      if (lines.length) push('');
+      push(`${prefix}${open ? '⌄' : '›'} ${clean(agent.name)} · ${agent.status.replaceAll('_', ' ')} · ${agent.tools.length} tool${agent.tools.length === 1 ? '' : 's'}${agent.usage?.total_tokens ? ` · ${agent.usage.total_tokens.toLocaleString()} tokens` : ''}`, colors.text, block.id);
+      if (agent.goal) push(`${prefix}  ${fit(clean(agent.goal).replaceAll('\n', ' '), width - prefix.length - 2)}`, colors.dim);
+      const tools = open ? agent.tools : agent.tools.filter((tool, index) => tool.status === 'running' || index >= agent.tools.length - 3);
+      for (const tool of tools) {
+        const running = tool.status === 'running' && !finished;
+        push(`${prefix}  ${running ? '' : tool.status === 'completed' ? '✓ ' : '× '}${fit(clean(toolLabel(tool)).replaceAll('\n', ' '), width - prefix.length - 6)}`, colors.muted, block.id, running);
+        const output = clean(tool.output).split('\n').filter(Boolean);
+        if (output.length) for (const line of output.slice(open ? -4 : -1)) push(`${prefix}    ${fit(line, width - prefix.length - 4)}`, colors.dim);
+      }
+      if (!finished && !tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running');
+      if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text);
+      if (open && agent.result) push(clean(agent.result), colors.muted);
+    } else if (block.kind === 'tool' || block.kind === 'reasoning') {
       const open = expanded.has(block.id);
       const active = block.status === 'running';
       const status = block.kind === 'reasoning' || active ? '' : block.status === 'completed' ? '✓ ' : '× ';
@@ -102,6 +121,9 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       } else push(text, block.kind === 'notice' ? colors.muted : colors.text);
       push('');
     }
+  }
+  if (activity?.busy && !blocks.some(block => (block.kind === 'reasoning' || block.kind === 'tool') && block.status === 'running')) {
+    push(`› ${activity.status === 'Responding' ? 'Responding…' : 'Thinking…'}`, colors.muted, undefined, true);
   }
   return lines;
 }

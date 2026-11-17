@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {Text} from 'ink';
 
 export const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-export const FRAME_INTERVAL = 80;
+export const FRAME_INTERVAL = 40;
 
 export function useActivityFrame(active: boolean) {
   const [frame, setFrame] = useState(0);
@@ -16,8 +16,13 @@ export function useActivityFrame(active: boolean) {
 }
 
 export function shimmerColor(index: number, frame: number, length: number) {
-  const wave = (Math.cos((index - frame * 0.45) * Math.PI * 2 / Math.max(12, length + 6)) + 1) / 2;
-  const shade = Math.round(16 + 239 * wave).toString(16).padStart(2, '0');
+  // A narrow dark band crosses white text each second, independent of its length.
+  const spread = Math.max(1.5, length * 0.22);
+  const progress = ((frame * FRAME_INTERVAL) % 1000) / 1000;
+  const center = -spread + progress * (length - 1 + spread * 2);
+  const distance = Math.min(1, Math.abs(index - center) / spread);
+  const wave = (Math.cos(distance * Math.PI) + 1) / 2;
+  const shade = Math.round(255 - 239 * wave).toString(16).padStart(2, '0');
   return `#${shade.repeat(3)}`;
 }
 

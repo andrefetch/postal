@@ -1,12 +1,13 @@
-import type {AgentRecord, Approval, ServerMessage, Settings} from './protocol.js';
+import type {Approval, ServerMessage, Settings} from './protocol.js';
+import {finishAgents, updateAgent, type AgentActivity} from './agents.js';
 export interface Block {
-  id: number; kind: 'user' | 'assistant' | 'notice' | 'reasoning' | 'tool'; text: string;
+  id: number; kind: 'user' | 'assistant' | 'notice' | 'reasoning' | 'tool' | 'agent'; text: string; agentId?: string;
   title?: string; callId?: string; status?: string; args?: Record<string, unknown>; files?: string[]; web?: boolean;
 }
 export interface State {
   ready: boolean; busy: boolean; status: string; settings: Settings; blocks: Block[]; logo: string[];
   commands: {name: string; description: string}[]; history: string[]; version: string;
-  capabilities: {read: boolean; search: boolean}; agents: Record<string, AgentRecord>; approval?: Approval;
+  capabilities: {read: boolean; search: boolean}; agents: Record<string, AgentActivity>; approval?: Approval;
   nextId: number; assistant?: number; reasoning?: number; tokens: number; recentModels: string[];
 }
 export const CLOUD_LOGO = ['      ████████        ', '    ██████████████    ', '  ██████████████████  ', '██████████████████████'];
@@ -26,17 +27,25 @@ export function reduce(state: State, message: ServerMessage): State {
     case 'transcript': return {...state, blocks: message.messages.map((block, id) => ({id, kind: block.role, text: block.text})),
       nextId: message.messages.length, assistant: undefined, reasoning: undefined, agents: {}};
     case 'turn_start': return {...add({kind: 'user', text: message.text, files: message.files, web: message.web}),
-      busy: true, status: 'Thinking', agents: {}, assistant: undefined, reasoning: undefined};
+      busy: true, status: 'Thinking', assistant: undefined, reasoning: undefined};
     case 'turn_end': return {...state, busy: false, status: message.status, assistant: undefined, reasoning: undefined,
+      agents: finishAgents(state.agents, message.status === 'Interrupted' ? 'cancelled' : message.status === 'Ready' ? 'completed' : 'failed'),
       blocks: state.blocks.map(block => block.status === 'running' ? {...block, status: message.status === 'Interrupted' ? 'cancelled' : 'completed'} : block)};
     case 'notice': return add({kind: 'notice', text: message.text});
-    case 'fatal': return {...add({kind: 'notice', text: message.message}), ready: false, busy: false, status: 'Disconnected'};
+    case 'fatal': return {...add({kind: 'notice', text: message.message}), ready: false, busy: false, status: 'Disconnected', agents: finishAgents(state.agents, 'failed')};
     case 'approval': return {...state, approval: message.approval};
     case 'approval_closed': return {...state, approval: state.approval?.id === message.id ? undefined : state.approval};
     case 'agent_event': {
       const {event} = message, data = event.data;
-      if (event.type === 'agent_status') return {...state, agents: {...state.agents, [data.agent_id]: data as AgentRecord}};
-      if (event.agent_id && event.agent_id !== 'main') return state;
+      if (event.type === 'agent_status' || (event.agent_id && event.agent_id !== 'main')) {
+        const id = event.type === 'agent_status' ? data.agent_id : event.agent_id!;
+        const agent = updateAgent(state.agents[id], {...event, agent_id: id});
+        // Child prose stays private; only activity and final results belong in the agent view.
+        if (event.type === 'text_delta' && !state.agents[id]) return state;
+        const next = id !== 'main' && !state.blocks.some(block => block.agentId === id)
+          ? add({kind: 'agent', agentId: id, text: ''}) : state;
+        return {...next, agents: {...state.agents, [id]: agent}};
+      }
       if (event.type === 'text_delta' || event.type === 'reasoning_delta') {
         const reasoning = event.type === 'reasoning_delta';
         if (reasoning && !state.settings.reasoning.visible) return state;

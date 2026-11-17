@@ -2,7 +2,8 @@ import {useCallback, useContext, useEffect, useMemo, useReducer, useRef, useStat
 import {Box, Text, useApp, useInput, usePaste, useWindowSize} from 'ink';
 import {basename} from 'node:path';
 import wrapAnsi from 'wrap-ansi';
-import type {AgentRecord, Transport} from './protocol.js';
+import type {Transport} from './protocol.js';
+import {agentDetails} from './agents.js';
 import {initialState, reduce, type State} from './state.js';
 import {clean, edit, emptyDraft, fit, insert, visualLines, type Draft} from './editor.js';
 import {colors, conversationLines, focusOrder, Menu, PromptBar, type Choice, type Focus, type PromptProps, type ConversationLine} from './components.js';
@@ -35,7 +36,6 @@ export function TerminalView(props: ViewProps) {
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const offset = Math.min(maxScroll, scroll ?? maxScroll);
   const statusWidth = dimensions.width - (dimensions.width > 55 ? 28 : 0);
-  const activitySuffix = ` · esc stop${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`;
   if (columns < 32 || rows < 10) return <Box width={columns} height={rows}><Text>Resize to at least 32 × 10. Ctrl+Q quits.</Text></Box>;
   return <Box width={columns} height={rows} flexDirection="column" alignItems="center" backgroundColor={colors.background} overflow="hidden">
     {dimensions.header > 0 && <Box width={columns - 4} height={2} justifyContent="space-between">
@@ -56,10 +56,7 @@ export function TerminalView(props: ViewProps) {
     <PromptBar {...props} width={dimensions.width} inputRows={dimensions.inputRows} padding={dimensions.padding} active={!overlay}/>
     <Box width={dimensions.width} height={2} paddingTop={1} justifyContent="space-between" flexShrink={0}>
       <Box width={statusWidth} overflow="hidden">
-        {animate && !toast ? <>
-          <LoadingText text={fit(state.status === 'Thinking' ? 'Thinking…' : state.status, Math.max(1, statusWidth - activitySuffix.length - 2))} frame={frame}/>
-          <Text color={colors.dim} wrap="truncate">{activitySuffix}</Text>
-        </> : <Text color={colors.dim} wrap="truncate">{fit(toast || `${state.approval ? 'Awaiting approval' : state.status} · ${state.settings.approval}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, dimensions.width - (dimensions.width > 55 ? 28 : 0))}</Text>}
+        <Text color={colors.dim} wrap="truncate">{fit(toast || `${state.approval ? 'Awaiting approval' : state.busy ? 'esc stop' : state.status} · ${state.settings.approval}${state.tokens ? ` · ${state.tokens.toLocaleString()} tokens` : ''}`, statusWidth)}</Text>
       </Box>
       {dimensions.width > 55 && <Text color={colors.dim}>{scroll !== null && offset < maxScroll ? 'pgdn latest' : '/ commands    enter send'}</Text>}
     </Box>
@@ -83,7 +80,7 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
   const savedDraft = useRef<Draft>(emptyDraft()), quitting = useRef(false);
   const home = state.blocks.length === 0;
   const dimensions = layout(columns, rows, home, draft, files.length > 0 || web);
-  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded), [state.blocks, dimensions.width, expanded]);
+  const lines = useMemo(() => conversationLines(state.blocks, dimensions.width, expanded, state), [state.blocks, dimensions.width, expanded, state.agents, state.busy, state.status]);
   const maxScroll = Math.max(0, lines.length - dimensions.conversation);
   const report = useCallback((error: unknown) => setToast(error instanceof Error ? error.message : String(error)), []);
   const request = useCallback((method: string, params: Record<string, unknown> = {}) => backend.request(method, params).catch(report), [backend, report]);
@@ -251,8 +248,8 @@ export function PostalApp({backend, size}: {backend: Transport; size?: {columns:
       <Box gap={3}><HitBox onClick={() => respond(false)}><Text inverse={!approvalChoice}> Reject [n] </Text></HitBox><HitBox onClick={() => respond(true)}><Text inverse={approvalChoice}> Approve [y] </Text></HitBox></Box>
     </Box>;
   } else if (menu?.kind === 'agents') {
-    const record: AgentRecord | undefined = agents[selected];
-    const details = wrapAnsi(clean(record ? [record.goal, record.error || record.result || 'Working…'].join('\n\n') : 'No delegated agents yet.'), Math.max(1, panelWidth - 6), {hard: true}).split('\n');
+    const record = agents[selected];
+    const details = wrapAnsi(clean(record ? agentDetails(record) : 'No delegated agents yet.'), Math.max(1, panelWidth - 6), {hard: true}).split('\n');
     overlay = <Box flexDirection="column" width={panelWidth} height={panelHeight} paddingX={2} paddingY={1} backgroundColor={colors.menu} borderStyle="round" borderColor={colors.line}>
       <Text bold color={colors.text}>Agent activity</Text>
       {choices.slice(Math.max(0, selected - 3), Math.max(0, selected - 3) + 4).map(choice => <Text key={choice.key} color={choice.key === record?.agent_id ? colors.accent : colors.muted}>{fit(choice.label, panelWidth - 6)}</Text>)}

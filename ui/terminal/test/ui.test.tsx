@@ -86,9 +86,14 @@ test('loading animates during thinking and tools, pauses for approval, and stops
   const first = spinner();
   await until(() => spinner() !== first);
   assert.ok(app.lastFrame()?.includes('Thinking'));
+  const thinkingFrame = stripAnsi(app.lastFrame() ?? '').split('\n');
+  assert.ok(thinkingFrame.findIndex(line => line.includes('Thinking')) < thinkingFrame.findIndex(line => line.includes('╭')),
+    'thinking animation belongs above the prompt, inside the conversation');
+  assert.ok(!thinkingFrame.slice(thinkingFrame.findIndex(line => line.includes('╰')) + 1).some(line => SPINNER_FRAMES.some(frame => line.includes(frame))),
+    'footer should not contain the loading animation');
   backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
     data: {call_id: 'read-1', name: 'read', arguments: {path: 'app.py'}}}});
-  await until(() => app.lastFrame()?.includes('Running read') ?? false);
+  await until(() => app.lastFrame()?.includes('read app.py') ?? false);
   backend.emit({type: 'approval', approval: {id: 'approval-1', tool: 'read', description: 'Read app.py', params: {}, paths: [], dangerous: false}});
   await until(() => app.lastFrame()?.includes('Awaiting approval') ?? false);
   assert.equal(spinner(), undefined);
@@ -117,6 +122,33 @@ test('approval defaults to reject and approval shortcuts are explicit', async ()
   app.stdin.write('y');
   await until(() => backend.requests.filter(request => request.method === 'approve').length === 2);
   assert.deepEqual(backend.requests.at(-1)!.params, {approvalId: 'approval-2', approved: true});
+});
+
+test('subagents show their live tools inline and in the agent activity view', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 30}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  backend.emit({type: 'turn_start', text: 'Inspect the project', files: [], web: false});
+  for (const [id, name, tool, args, progress] of [
+    ['a', 'Researcher', 'grep', {pattern: 'auth'}, 'Searching authentication'],
+    ['b', 'Reviewer', 'read', {path: 'routes.py'}, 'Reading routes'],
+  ] as const) {
+    backend.emit({type: 'agent_event', event: {type: 'agent_status', agent_id: id, parent_agent_id: 'main',
+      data: {agent_id: id, parent_agent_id: 'main', name, goal: 'Inspect relevant code', depth: 1, status: 'running'}}});
+    backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: id, parent_agent_id: 'main',
+      data: {call_id: 'same', name: tool, arguments: args}}});
+    backend.emit({type: 'agent_event', event: {type: 'tool_progress', agent_id: id, parent_agent_id: 'main',
+      data: {call_id: 'same', content: progress}}});
+  }
+  await until(() => app.lastFrame()?.includes('Reading routes') ?? false);
+  for (const expected of ['Researcher', 'Reviewer', 'grep auth', 'read routes.py', 'Searching authentication']) assert.ok(app.lastFrame()?.includes(expected), expected);
+  app.stdin.write('\x07');
+  await until(() => app.lastFrame()?.includes('Agent activity') ?? false);
+  assert.ok(app.lastFrame()?.includes('Searching authentication'));
+  app.stdin.write('\x1b[B');
+  await until(() => app.lastFrame()?.includes('Reading routes') ?? false);
+  app.stdin.write('\x1b');
+  backend.emit({type: 'turn_end', status: 'Ready'});
+  await until(() => app.lastFrame()?.includes('completed') ?? false);
 });
 
 test('model picker keeps the draft and command completion is keyboard accessible', async () => {

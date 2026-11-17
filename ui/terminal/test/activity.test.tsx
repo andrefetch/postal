@@ -8,10 +8,11 @@ test('palette and animated text stay grayscale while the gradient moves', () => 
   for (const color of Object.values(colors)) assert.match(color, /^#([\da-f]{2})\1\1$/i);
   const shades = Array.from({length: 40}, (_, frame) => shimmerColor(0, frame, 8));
   for (const color of shades) assert.match(color, /^#([\da-f]{2})\1\1$/i);
-  assert.equal(shades[0], '#ffffff');
+  assert.ok(shades.some(color => parseInt(color.slice(1, 3), 16) > 240));
   assert.ok(shades.some(color => parseInt(color.slice(1, 3), 16) < 24));
   assert.notEqual(shimmerColor(0, 0, 8), shimmerColor(0, 4, 8));
-  assert.notEqual(shimmerColor(0, 0, 8), shimmerColor(3, 0, 8));
+  assert.notEqual(shimmerColor(0, 4, 8), shimmerColor(3, 4, 8));
+  assert.equal(shimmerColor(0, 4, 8), shimmerColor(0, 29, 8));
 });
 
 test('reasoning animates only until completion and replies are labeled Postal', () => {
