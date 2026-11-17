@@ -1,9 +1,11 @@
 import type {AgentEvent, AgentRecord} from './protocol.js';
+import {toolDetails} from './toolPresentation.js';
 
 export interface AgentTool {
   callId: string; name: string; args: Record<string, unknown>;
   status: 'running' | 'completed' | 'failed' | 'cancelled'; output: string;
   startedAt?: number; finishedAt?: number; error?: string; exitCode?: number; diff?: string;
+  metadata?: Record<string, unknown>; truncated?: boolean;
 }
 export interface AgentActivity extends AgentRecord {tools: AgentTool[]; phase: string}
 export const agentFinished = (status: string) => ['completed', 'failed', 'cancelled', 'timed_out'].includes(status);
@@ -32,8 +34,8 @@ export function updateAgent(previous: AgentActivity | undefined, event: AgentEve
     agent = {...agent, phase: type === 'tool_call_complete' ? 'Thinking…' : agent.phase, tools: agent.tools.map(tool =>
       tool.callId !== data.call_id ? tool : {...tool,
         status: type === 'tool_progress' ? 'running' : data.success ? 'completed' : 'failed',
-        ...(type === 'tool_call_complete' ? {finishedAt: Date.now(), error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
-        output: (type === 'tool_progress' ? tool.output + (data.content ?? '') : [data.output, data.error, data.diff].filter(Boolean).join('\n')).slice(-4000),
+        ...(type === 'tool_call_complete' ? {finishedAt: Date.now(), metadata: data.metadata ?? {}, truncated: data.truncated, error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
+        output: (type === 'tool_progress' ? tool.output + (data.content ?? '') : (data.output ?? '')).slice(-4000),
       })};
   }
   if (type === 'reasoning_delta') agent = {...agent, phase: 'Thinking…'};
@@ -53,7 +55,7 @@ export function toolLabel(tool: AgentTool) {
 
 export function agentDetails(agent: AgentActivity) {
   return [agent.goal, `Status: ${agent.status.replaceAll('_', ' ')} · ${agent.phase}`,
-    ...agent.tools.map(tool => `${tool.status === 'running' ? '◌' : tool.status === 'completed' ? '✓' : '×'} ${toolLabel(tool)} · ${tool.status}\n${tool.output}`),
+    ...agent.tools.map(tool => `${tool.status === 'running' ? '◌' : tool.status === 'completed' ? '✓' : '×'} ${toolLabel(tool)} · ${tool.status}\n${toolDetails(tool)}`),
     agent.error || agent.result || '', agent.usage?.total_tokens ? `${agent.usage.total_tokens.toLocaleString()} tokens` : '',
   ].filter(Boolean).join('\n\n');
 }

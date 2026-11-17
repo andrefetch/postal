@@ -4,7 +4,8 @@ export interface Block {
   id: number; kind: 'user' | 'assistant' | 'notice' | 'reasoning' | 'tool' | 'agent'; text: string; agentId?: string;
   title?: string; callId?: string; status?: string; args?: Record<string, unknown>; files?: string[]; web?: boolean;
   startedAt?: number; finishedAt?: number;
-  error?: string; exitCode?: number; diff?: string;
+  error?: string; exitCode?: number; diff?: string; output?: string;
+  metadata?: Record<string, unknown>; truncated?: boolean;
 }
 export interface State {
   ready: boolean; busy: boolean; status: string; settings: Settings; blocks: Block[]; logo: string[];
@@ -71,7 +72,7 @@ export function reduce(state: State, message: ServerMessage): State {
         blocks: state.blocks.map(block => block.callId === data.call_id ? {...block,
           text: event.type === 'tool_progress' ? (block.text + (data.content ?? '')).slice(-12000) :
             [data.output, data.error, data.diff].filter(Boolean).join('\n'),
-          ...(event.type === 'tool_call_complete' ? {finishedAt: now, error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
+          ...(event.type === 'tool_call_complete' ? {finishedAt: now, output: data.output ?? "", metadata: data.metadata ?? {}, truncated: data.truncated, error: data.error, exitCode: typeof data.exit_code === 'number' ? data.exit_code : undefined, diff: data.diff} : {}),
           status: event.type === 'tool_progress' ? 'running' : data.success ? 'completed' : 'failed'} : block)};
       if (event.type === 'usage') return {...state, tokens: data.usage?.total_tokens ?? state.tokens};
       if (event.type === 'agent_error') return {...add({kind: 'notice', text: data.error ?? 'Agent failed'}), status: 'Failed'};

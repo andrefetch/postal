@@ -175,7 +175,7 @@ test('completed tools show a concise result and expand to reveal full output', a
   await until(() => app.lastFrame()?.includes('Running') ?? false);
   backend.emit({type: 'agent_event', event: {type: 'tool_call_complete', agent_id: 'main', parent_agent_id: null,
     data: {call_id: 'read-1', success: true, output: 'Full file contents\nSecond line', exit_code: 0}}});
-  await until(() => app.lastFrame()?.includes('exit 0 · 2 lines of output') ?? false);
+  await until(() => app.lastFrame()?.includes('Read 2 lines · exit 0') ?? false);
   assert.ok(app.lastFrame()?.includes('Done'));
   assert.ok(!app.lastFrame()?.includes('Full file contents'));
   app.stdin.write('\x0f');
@@ -212,6 +212,38 @@ test('subagents show their live tools inline and in the agent activity view', as
   app.stdin.write('\x1b');
   backend.emit({type: 'turn_end', status: 'Ready'});
   await until(() => app.lastFrame()?.includes('completed') ?? false);
+});
+
+test('successful tools compact into groups and all detail shortcuts preserve the draft', async () => {
+  const backend = new Backend(), app = render(<PostalApp backend={backend} size={{columns: 100, rows: 36}}/>);
+  await until(() => app.lastFrame()?.includes('Ready') ?? false);
+  app.stdin.write('keep my draft');
+  await delay(20);
+  backend.emit({type: 'turn_start', text: 'Read these files', files: [], web: false});
+  for (const index of [1, 2]) {
+    backend.emit({type: 'agent_event', event: {type: 'tool_call_start', agent_id: 'main', parent_agent_id: null,
+      data: {call_id: `read-${index}`, name: 'read', arguments: {path: `src/file${index}.py`}}}});
+    await delay(20);
+    backend.emit({type: 'agent_event', event: {type: 'tool_call_complete', agent_id: 'main', parent_agent_id: null,
+      data: {call_id: `read-${index}`, success: true, output: `Unique result ${index}`, metadata: {shown_start: 1, shown_end: 1}}}});
+  }
+  backend.emit({type: 'turn_end', status: 'Ready'});
+  await until(() => app.lastFrame()?.includes('Read 2 files') ?? false);
+  assert.ok(app.lastFrame()?.includes('src/file1.py'));
+  assert.ok(app.lastFrame()?.includes('src/file2.py'));
+  await delay(1750);
+  await until(() => !app.lastFrame()?.includes('src/file1.py'));
+  assert.ok(app.lastFrame()?.includes('Read 2 files'));
+  app.stdin.write('\x1bo');
+  await until(() => app.lastFrame()?.includes('src/file1.py') ?? false);
+  app.stdin.write('\x1ba');
+  await until(() => app.lastFrame()?.includes('Unique result 1') && app.lastFrame()?.includes('Unique result 2') || false);
+  app.stdin.write('\x1bc');
+  await until(() => !app.lastFrame()?.includes('Unique result 1') && !app.lastFrame()?.includes('src/file1.py'));
+  app.stdin.write('\x0f');
+  await until(() => app.lastFrame()?.includes('Unique result 2') ?? false);
+  assert.ok(!app.lastFrame()?.includes('Unique result 1'));
+  assert.ok(app.lastFrame()?.includes('keep my draft'));
 });
 
 test('model picker keeps the draft and command completion is keyboard accessible', async () => {

@@ -79,6 +79,9 @@ The prompt bar's `+` menu adds workspace text/code file references, requests web
 | `/`, `Ctrl+P` | Open slash commands; type to filter, arrows to select, `Tab` or `Enter` to complete |
 | `Ctrl+G` | Open or close nested agent activity |
 | `Ctrl+O` | Expand or collapse the latest tool or reasoning block |
+| `Alt+O` | Expand or collapse the latest group of reads or searches |
+| `Alt+A` | Expand all tool results and reasoning traces |
+| `Alt+C` | Collapse tool details and reasoning traces; errors remain visible |
 | `Ctrl+End` | Scroll to the latest message |
 | `PageUp` / `PageDown` | Scroll the conversation |
 | `Esc`, `Ctrl+C` | Interrupt a running turn; close a menu; reject an open approval request |
@@ -87,6 +90,8 @@ The prompt bar's `+` menu adds workspace text/code file references, requests web
 In agent activity, arrows select an agent, `Enter` runs its slash-command choice, and `c` cancels the selected agent's subtree. The selected agent's goal, status, and result appear underneath. Approval overlays show the command or diff before execution: `y` approves, while `n` or `Esc` rejects. The reject button is focused by default.
 
 Scrolling up keeps your place while a response streams. Scroll back to the bottom or press `Ctrl+End` to follow new output again. Tool output and reasoning are collapsible with a click or `Ctrl+O`.
+
+Running tools show a small lattice, a fixed two-line output preview, and an elapsed timer. Successful calls briefly settle into a checkmark, show a result summary or small edit preview, and compact after 1.6 seconds. Consecutive reads and searches form expandable groups. File paths keep their filename visible when shortened; expanding a result reveals the full arguments, output, and diff. Failed calls keep their error visible even when tool groups are collapsed.
 
 ## Examples
 

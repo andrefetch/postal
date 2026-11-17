@@ -8,7 +8,8 @@ import type {Block, State} from './state.js';
 import {HitBox} from './mouse.js';
 import {agentFinished} from './agents.js';
 import type {LatticeStatus} from './LatticeLoader.js';
-import {toolSummary, toolTarget, type ToolActivity, type ToolPresentation} from './ToolRow.js';
+import {agentToolKey, groupExpanded, groupSummary, groupTools, toolDetails, toolDiffPreview, toolError, toolSummary, toolTarget, TOOL_COMPACT_DELAY, type DetailKey, type ToolActivity, type ToolGroup, type ToolItem, type ToolPresentation} from './toolPresentation.js';
+import {mainTool} from './toolNavigation.js';
 import {thoughtEase} from './ThoughtLine.js';
 
 export const colors = {background: '#080808', panel: '#242424', menu: '#2c2c2c', text: '#f3f3f3', muted: '#a0a0a0', dim: '#737373', accent: '#eeeeee', line: '#454545'};
@@ -78,12 +79,12 @@ export function PromptBar({state, draft, width, inputRows, padding, focus, files
   </Box>;
 }
 
-export interface ConversationLine {text: string; block?: number; color?: string; activity?: boolean;
+export interface ConversationLine {text: string; block?: number; detailKey?: DetailKey; group?: ToolGroup; color?: string; activity?: boolean;
   thought?: {status: LatticeStatus; startedAt: number; finishedAt?: number; steps: string[]; open: boolean; doneLabel?: string};
   thoughtStep?: {text: string; done: boolean; startedAt: number; finishedAt?: number};
   tool?: ToolPresentation;
 }
-export function conversationLines(blocks: Block[], width: number, expanded: Set<number>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'> & {now?: number}): ConversationLine[] {
+export function conversationLines(blocks: Block[], width: number, expanded: ReadonlySet<DetailKey>, activity?: Pick<State, 'busy' | 'status' | 'agents' | 'turnStartedAt'> & {now?: number}): ConversationLine[] {
   const lines: ConversationLine[] = [];
   const push = (text: string, color?: string, block?: number, activity = false) => {
     for (const line of wrapAnsi(text, Math.max(1, width - (activity ? 3 : 0)), {hard: true, trim: false}).split('\n')) lines.push({text: line, color, block, activity});
@@ -104,13 +105,56 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       }
     }
   };
-  const pushTool = (item: ToolActivity, id: number, open: boolean, indent = 0) => {
-    lines.push({text: `${item.name} ${toolTarget(item.args)}`, block: id, activity: item.status === 'running',
-      tool: {activity: item, expanded: open, indent}});
-    const summary = toolSummary(item);
-    if (summary) push(`${' '.repeat(indent)}  └ ${fit(summary, width - indent - 4)}`, item.status === 'failed' ? colors.muted : colors.dim, id);
+  const now = activity?.now ?? Date.now();
+  const pushTool = (item: ToolActivity, key: DetailKey, open: boolean, indent = 0) => {
+    const compact = !open && item.status === 'completed' && item.finishedAt !== undefined && now - item.finishedAt >= TOOL_COMPACT_DELAY;
+    const block = typeof key === 'number' ? key : undefined;
+    lines.push({text: `${item.name} ${toolTarget(item.args)}`, block, detailKey: key, activity: item.status === 'running',
+      tool: {activity: item, expanded: open, indent, compact}});
+    const padding = ' '.repeat(indent), detailWidth = Math.max(1, width - indent - 4);
+    const detail = (text: string, color = colors.dim, full = false) => {
+      const content = full ? wrapAnsi(clean(text), detailWidth, {hard: true, trim: false}).split('\n') : [fit(text, detailWidth)];
+      for (const line of content) lines.push({text: `${padding}  │ ${line}`, color, detailKey: key, block});
+    };
+    if (open) {
+      if (item.status === 'completed' && toolSummary(item)) detail(toolSummary(item), colors.muted);
+      for (const [name, value] of Object.entries(item.args)) detail(`${name}  ${clean(typeof value === 'string' ? value : JSON.stringify(value) ?? String(value))}`, colors.dim, true);
+      for (const line of clean(toolDetails(item)).split('\n')) detail(line, item.status === 'failed' ? colors.text : colors.muted, true);
+    } else if (item.status === 'running') {
+      const preview = clean(item.output).replaceAll('\r', '').split('\n').filter(line => line.trim()).slice(-2);
+      detail(preview[0] ?? 'Waiting for output…');
+      detail(preview[1] ?? '');
+    } else if (item.status === 'failed') {
+      const error = toolError(item);
+      const preview = wrapAnsi(error.slice(0, 2).join(' '), detailWidth, {hard: true}).split('\n').slice(0, 2);
+      for (const line of preview) detail(line, colors.text);
+    } else if (!compact) {
+      const summary = toolSummary(item);
+      if (summary) lines.push({text: `${padding}  └ ${fit(summary, detailWidth)}`, color: colors.dim, detailKey: key, block});
+      if (item.diff) {
+        const preview = toolDiffPreview(item.diff);
+        for (const line of preview.lines) detail(line, line.startsWith('+') ? colors.text : colors.muted);
+        if (preview.remaining) detail(`… ${preview.remaining} more changed ${preview.remaining === 1 ? 'line' : 'lines'}`);
+      }
+    }
   };
-  for (const block of blocks) {
+  const pushTools = (items: ToolItem[], scope: string, indent = 0, forceOpen = false) => {
+    for (const group of groupTools(items, scope)) {
+      if (group.items.length === 1) {
+        const item = group.items[0]!;
+        pushTool(item.activity, item.key, forceOpen || expanded.has(item.key), indent);
+        continue;
+      }
+      const open = forceOpen || groupExpanded(group, expanded, now);
+      lines.push({text: group.activity.name, detailKey: group.key, group, activity: group.activity.status === 'running',
+        tool: {activity: group.activity, expanded: open, indent, compact: !open, summary: groupSummary(group)}});
+      for (const item of group.items) if (open || item.activity.status === 'failed') {
+        pushTool(item.activity, item.key, forceOpen || expanded.has(item.key), indent + 2);
+      }
+    }
+  };
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index]!;
     if (block.kind === 'agent') {
       const agent = activity?.agents[block.agentId!];
       if (!agent) continue;
@@ -119,27 +163,20 @@ export function conversationLines(blocks: Block[], width: number, expanded: Set<
       if (lines.length) push('');
       push(`${prefix}${open ? '⌄' : '›'} ${clean(agent.name)} · ${agent.status.replaceAll('_', ' ')} · ${agent.tools.length} tool${agent.tools.length === 1 ? '' : 's'}${agent.usage?.total_tokens ? ` · ${agent.usage.total_tokens.toLocaleString()} tokens` : ''}`, colors.text, block.id);
       if (agent.goal) push(`${prefix}  ${fit(clean(agent.goal).replaceAll('\n', ' '), width - prefix.length - 2)}`, colors.dim);
-      const tools = open ? agent.tools : agent.tools.filter((tool, index) => tool.status === 'running' || index >= agent.tools.length - 3);
-      for (const tool of tools) {
-        pushTool(tool, block.id, open, prefix.length + 2);
-        const output = clean(tool.output).split('\n').filter(Boolean);
-        if (open && output.length) for (const line of output.slice(-4)) push(`${prefix}    │ ${fit(line, width - prefix.length - 6)}`, colors.dim);
-      }
-      if (!finished && !tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running');
+      pushTools(agent.tools.map(tool => ({key: agentToolKey(agent.agent_id, tool.callId), activity: tool})), agent.agent_id, prefix.length + 2, open);
+      if (!finished && !agent.tools.some(tool => tool.status === 'running')) push(`${prefix}  ${agent.phase}`, colors.muted, block.id, agent.status === 'running');
       if (agent.error) push(`${prefix}  ${clean(agent.error)}`, colors.text);
       if (open && agent.result) push(clean(agent.result), colors.muted);
-    } else if (block.kind === 'tool' || block.kind === 'reasoning') {
+    } else if (block.kind === 'tool') {
+      const run = [block];
+      while (blocks[index + 1]?.kind === 'tool') run.push(blocks[++index]!);
+      pushTools(run.map(item => ({key: item.id, activity: mainTool(item)})), 'main');
+    } else if (block.kind === 'reasoning') {
       const active = block.status === 'running';
-      const open = block.kind === 'reasoning' && active ? !expanded.has(-block.id - 1) : expanded.has(block.id);
-      if (block.kind === 'reasoning') thinking(active ? 'working' : block.status === 'completed' ? 'done' : 'error',
+      const open = active ? !expanded.has(-block.id - 1) : expanded.has(block.id);
+      thinking(active ? 'working' : block.status === 'completed' ? 'done' : 'error',
         block.startedAt ?? 0, block.finishedAt, block.id, clean(block.text).split(/\n+/).map(line => line.trim()).filter(Boolean), open,
         block.status === 'cancelled' ? 'Stopped after' : block.status === 'failed' ? 'Failed after' : undefined);
-      else pushTool({name: block.title ?? 'Tool', args: block.args ?? {}, status: block.status ?? 'completed', output: block.text,
-        startedAt: block.startedAt, finishedAt: block.finishedAt, error: block.error, exitCode: block.exitCode, diff: block.diff}, block.id, open);
-      if (open && block.kind === 'tool') {
-        if (block.args) for (const [name, value] of Object.entries(block.args)) push(`  │ ${name}  ${clean(typeof value === 'string' ? value : JSON.stringify(value))}`, colors.dim, block.id);
-        for (const line of clean(block.text).split('\n')) push(`  │ ${line}`, colors.muted, block.id);
-      }
     } else {
       if (lines.length) push('');
       if (block.kind !== 'notice') push(block.kind === 'user' ? 'You' : 'Postal', block.kind === 'user' ? colors.muted : colors.accent);

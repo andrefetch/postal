@@ -17,9 +17,9 @@ test('tool rows fit narrow terminals and distinguish successful, failed, and sto
     assert.ok(frame.includes(label!), frame);
     if (width === 80) assert.ok(frame.includes('0.8s'));
   }
-  assert.equal(toolSummary(tool), '2 lines of output');
-  assert.equal(toolSummary({...tool, exitCode: 0}), 'exit 0 · 2 lines of output');
-  assert.equal(toolSummary({...tool, diff: '--- a/x\n+++ b/x\n-old\n+new\n+next'}), '+2 −1');
+  assert.equal(toolSummary(tool), 'Read 2 lines');
+  assert.equal(toolSummary({...tool, exitCode: 0}), 'Read 2 lines · exit 0');
+  assert.equal(toolSummary({...tool, name: 'edit', diff: '--- a/x\n+++ b/x\n-old\n+new\n+next'}), '+2 −1');
   assert.equal(toolSummary({...tool, status: 'failed', error: 'Permission denied\nDetails'}), 'Permission denied');
   assert.equal(toolSummary({...tool, status: 'cancelled'}), 'Stopped before completion');
   assert.equal(toolSummary({...tool, status: 'running'}), 'second');
@@ -38,7 +38,7 @@ test('completion records frozen timing and keeps full results behind expansion',
   assert.equal(state.blocks[0]!.exitCode, undefined);
   const collapsed = conversationLines(state.blocks, 60, new Set());
   assert.ok(collapsed.some(line => line.tool?.activity.status === 'completed'));
-  assert.ok(collapsed.some(line => line.text.includes('2 lines of output')));
+  assert.ok(collapsed.some(line => line.text.includes('Read 2 lines')));
   assert.ok(!collapsed.some(line => line.text.includes('Full result')));
   const expanded = conversationLines(state.blocks, 60, new Set([0]));
   assert.ok(expanded.some(line => line.text.includes('path  src/app.py')));
