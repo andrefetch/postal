@@ -11,181 +11,43 @@
   <a href="assets/postalnewdemo.mp4"><img src="assets/postalnewdemo.gif" alt="Postal using a plan and async agents in yolo mode to add stdev and run the program in its current terminal UI" width="100%" /></a>
 </p>
 
-Postal connects to LLMs through OpenRouter, reads and edits your code with a built-in tool set, runs shell commands, delegates to specialized sub-agents, and streams everything through a full-screen TUI. Every mutating action goes through an approval policy you control, so it is as autonomous or as careful as you want it to be.
+Postal reads and edits your code, runs commands, and delegates tasks to specialized sub-agents. Choose your model through OpenRouter and control which actions need approval.
 
 ## Quick Start
 
-Install Postal, connect OpenRouter, and start an agent in your own repo:
+Requires Python 3.11+ and Node.js 22+.
 
 ```bash
 pip install postalcli
-postal login    # opens your browser to authorize with OpenRouter
-postal          # start the interactive TUI
+postal login    # connect your OpenRouter account
+postal          # start in your project directory
 ```
-
-Postal needs Python 3.11+ and Node.js 22+ (the interactive TUI is a bundled TypeScript program that runs on `node`; npm is not required).
 
 ## Usage
 
-Run `postal` from the project you want to work on, then describe your task in plain language. Start by exploring the codebase, ask for a plan, or jump into a specific change:
-
-```text
-Explain how this project is structured and where the main entry points are.
-Find the cause of this failing test and fix it.
-Plan a refactor of the authentication module before making any changes.
-Review my changes for bugs and missing edge cases.
-```
-
-Postal reads the relevant files, uses its tools, and streams its progress in the terminal. When an action needs approval, you can review it before it runs. Type `/help` to see the available commands, `/model <name>` to switch models, or `/config` to inspect your configuration.
-
-For a single task, pass your prompt directly:
+Describe what you want to do: explore a codebase, fix a bug, plan a change, or review your work.
 
 ```bash
-postal "Explain how this project is structured"
+postal "Find the cause of this failing test and fix it"
+postal --continue        # resume your last session in this directory
+postal --cwd /path       # work in a different directory
 ```
 
-You can also choose a working directory or return to a saved conversation:
-
-```bash
-postal --cwd /path       # run against a different working directory
-postal --continue        # pick up the last session in this directory
-postal --resume 3f2a1c   # resume a specific session by id
-postal sessions          # list saved sessions
-```
-
-Configuration lives in `~/.config/postal/config.toml`, with per-project overrides in `.postal/config.toml`, and `AGENTS.md` is picked up automatically.
-
-Full [CLI reference](docs/cli.md) | [configuration reference](docs/configuration.md)
+Inside the terminal, use `/help` for commands, `/model <name>` to switch models, and `/config` to view your settings.
 
 ## Documentation
 
-| Page | What it covers |
-| --- | --- |
-| [CLI reference](docs/cli.md) | Installing, logging in, every command and flags |
-| [Configuration](docs/configuration.md) | `config.toml`, per-project overrides, `AGENTS.md`, every option |
-| [Tools](docs/tools.md) | The built-in tool set, sub-agents, MCP servers |
-| [Approvals](docs/approvals.md) | The six approval policies and the rules that override them |
-| [Sessions](docs/sessions.md) | Saving, resuming, checkpointing and rewinding conversations |
-| [Slash commands](docs/slash-commands.md) | Everything you can type after a `/` inside the TUI |
-| [Architecture](docs/architecture.md) | How the codebase is put together, class by class |
-| [Technologies](docs/technologies.md) | The libraries Postal is built on and what each one does |
+See the [documentation](docs/README.md) for detailed guides and references:
 
-## Why Postal?
-
-- **Bring any model.** OpenRouter as the backend means versatility. One login gives you large models Claude, OpenAI, Deepseek, Kimi, and even access to smaller free models.
-- **Safety is a first-class feature.** Six approval policies, dangerous-command rejection, and confirmation for anything outside the working directory. You choose the risk level, not the agent. See [Approvals](docs/approvals.md).
-- **It survives long sessions.** Context pruning reclaims tokens from stale tool output, and when the window fills up, Postal compacts history into a continuation brief and keeps going instead of erroring out.
-- **Nothing is lost when you close the terminal.** Sessions are checkpointed after every turn, so `postal --continue` puts you back exactly where you were, and `/rewind` walks the conversation back to any earlier checkpoint. See [Sessions](docs/sessions.md).
-- **Configurable by design.** A readable, object-oriented Python codebase built on Rich, Click, and Pydantic. Every tool is one class behind a shared abstract base, so adding a tool or a sub-agent is a small, well-marked change. See [Architecture](docs/architecture.md).
-- **Component-based UI design.** Postal uses a modular, component-based UI system with separate components for every visual element (spinners, gutters, markdown rendering, tool displays, confirmations, etc.), making it easy to maintain, customize, and extend the interface.
-
-## What it can do
-
-| | |
-| --- | --- |
-| **Files** | `read`, `write`, `edit`, `apply_patch`, `grep`, `glob`, and `list_directories` for working with a codebase. `apply_patch` batches creates, updates, deletes and renames across several files into one all-or-nothing call |
-| **Bash** | The `bash` tool executes commands in the working directory. Automatically detects your OS to know what shell commands to execute  |
-| **Planning** | A `plan` tool tracks steps (a to do list) across the agent loop |
-| **Network and memory** | Web search via DuckDuckGo, URL fetching, and key-value storage that survives across sessions |
-| **Sub-agents** | Specialized agents the main agent can delegate to: `codebase_investigator`, `code_reviewer`, `software_architect`, `test_writer`, `debugger` |
-| **MCP** | Connects to external MCP servers for additional tools and data sources |
-| **Skills** | Automatically checks for `SKILLS.md` files during your first prompt, bring your skills over that you've used on any other harness
-| **Interactive TUI** | TypeScript/Ink interface with a centered prompt bar, model and effort controls, streaming responses, collapsible tools and reasoning, approval previews, and nested agent activity |
-| **Single-shot mode** | Pass a prompt as an argument for non-interactive runs, suitable for scripting |
-
-## Slash commands
-
-| Command | What it does |
-| --- | --- |
-| `/help` | Show all commands |
-| `/model <name>` | Switch models mid-session |
-| `/approval <mode>` | Switch the approval policy mid-session |
-| `/thinking [on\|off\|low\|medium\|high]` | Show, hide, or retune the model's reasoning |
-| `/clear` | Start a fresh conversation (the old one stays saved) |
-| `/config` | Show the active configuration |
-| `/stats` | Session statistics: tokens, elapsed time, tool calls |
-| `/tools` | List available tools |
-| `/agents [id]` | Open agent activity, or show one agent's full result |
-| `/mcp` | Show MCP server status |
-| `/sessions [all]` | List saved sessions, newest first |
-| `/sessions rm <n\|id>` | Delete a saved session |
-| `/resume <n\|id>` | Load a saved session into the current one |
-| `/checkpoint [label]` | Save a checkpoint now, with an optional name |
-| `/checkpoints` | List the checkpoints in this session |
-| `/rewind <n\|id>` | Roll the conversation back to a checkpoint |
-| `/exit`, `/quit` | Leave the agent |
-
-Commands autocomplete as you type: `/` opens the list, typing filters it, and `↑`/`↓` select. `Tab` or `Enter` completes a partial command; `Enter` submits a completed command.
-
-The terminal opens into a single conversation column with a multiline composer. `Enter` sends, `Ctrl+J` adds a line, `Ctrl+P` opens commands, and `Ctrl+G` opens the live agent tree. Tool calls show live previews, result summaries, and elapsed times, then compact successful results automatically. Repeated reads and searches form expandable groups. Click a heading or use `Ctrl+O` for the latest result, `Alt+O` for the latest group, `Alt+A` to expand all details, and `Alt+C` to collapse them. `Esc` interrupts a turn and `Ctrl+Q` exits. See the [keyboard reference](docs/cli.md#interactive-terminal).
-
-## Sessions
-
-Postal writes the conversation to disk after every turn, so closing the terminal does not kill your conversation. All conversations are resumable and can be accessed by running a command shown below.
-
-```bash
-postal --continue        # resume the most recent session in this directory
-postal --resume 3f2a1c   # resume a specific session (a prefix of the id is enough)
-postal sessions          # what is saved for this directory
-postal sessions --all    # every directory
-postal sessions rm 3f2a1c
-```
-
-Inside the TUI, `/sessions` lists what is saved and `/resume` loads one into the running agent, transcript and token totals included. The system prompt is not restored: it is rebuilt from the current config and tool set, so a resumed session picks up any model, approval, or `AGENTS.md` changes you have made since.
-
-### Checkpoints
-
-Each save is a checkpoint, a full snapshot of the conversation at that point. Turns are checkpointed automatically, and `/checkpoint <label>` marks one by hand before you try something risky:
-
-```text
-❯ /checkpoint before the refactor
-Saved before the refactor · 24 messages · session 3f2a1c8b
-
-❯ /checkpoints
-1  a41f9c02  turn 3                 18 msgs  22m ago
-2  7d2b1e55  turn 4                 24 msgs  4m ago
-3  e0c34a91  before the refactor    24 msgs  just now
-
-❯ /rewind 1
-Rewound to turn 3 · 18 messages · turn 3
-```
-
-Rewinding replaces the conversation the model sees, which makes it the way out of a turn that went sideways: roll back to before the detour and take another run at it. **It only rewinds the conversation, not your files** — anything already written to disk stays written.
-
-Sessions live in `~/.config/postal/sessions/<id>/`, one directory per session, with the transcripts in a JSONL file next to a small `meta.json`. Old checkpoints are trimmed once a session passes `max_checkpoints` (autosaves go first, named ones are kept), and the oldest sessions are dropped past `max_sessions`. Set `enabled = false` under `[session]` to keep conversations off disk entirely.
-
-## Approvals
-
-Before Postal runs anything that changes state, the approval policy decides whether it goes ahead, asks you, or is refused outright. Read-only tools (`read`, `grep`, `glob`, `list_directories`, `plan`) never prompt, so a policy only affects writes, bash commands, network calls, memory writes, MCP tools, and sub-agent runs.
-
-| Value | Badge | Behaviour |
-| --- | --- | --- |
-| `on_request` *(default)* | `ask` | Confirm every mutating tool call. Commands matched as known-safe (`ls`, `git status`, `grep`, …) run without asking. |
-| `auto_edit` | `auto-edit` | File edits and writes inside the working directory go through unprompted; bash commands still need confirmation unless known-safe. |
-| `auto` | `auto` | Everything runs except dangerous commands, which are rejected. |
-| `on_fail` | `on fail` | Currently identical to `auto`. Reserved for prompting after a failed tool call, which is not implemented yet. |
-| `never` | `read-only` | Rejects anything that isn't a known-safe command. Nothing gets written, and you are never prompted. |
-| `yolo` | `yolo` | Approves everything, including commands matched as dangerous. Only use this in a sandbox or container. |
-
-Two rules apply on top of the policy, and no policy except `yolo` overrides them:
-
-- **Dangerous commands are rejected.** `rm -rf /`, `dd if=`, `mkfs`, `shutdown`, `curl … | bash`, fork bombs, and similar patterns are refused before bash ever sees them (the full list is `DANGEROUS_PATTERNS` in `safety/approval.py`).
-- **Anything touching a path outside the working directory is confirmed**, however permissive the policy is (`never` rejects it instead).
-
-## Roadmap
-
-Currently being worked on:
-- **Parallel Subagents** - allows sub-agents to call instances of other sub-agents to delegate more work to specialized agents.
-- **Git Integration** - allows users to use git commands with postal.
-
-Have an idea? [Open an issue](https://github.com/andrefetch/postal/issues), feature discussions are very welcome.
+- [CLI and keyboard shortcuts](docs/cli.md) · [Slash commands](docs/slash-commands.md)
+- [Configuration](docs/configuration.md) · [Approval policies](docs/approvals.md)
+- [Tools, sub-agents, and MCP](docs/tools.md) · [Sessions and checkpoints](docs/sessions.md)
+- [Architecture](docs/architecture.md) · [Technologies](docs/technologies.md)
 
 ## Contributing
 
-Contributions of every size are appreciated, from typo fixes to new tools and sub-agents. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started, and check the [open issues](https://github.com/andrefetch/postal/issues) for something to pick up!
-
-If Postal is useful to you, **a star on the repo genuinely helps** the project reach more developers. ⭐
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get started, or [open an issue](https://github.com/andrefetch/postal/issues) with a bug report or idea.
 
 ## License
 
-[GNU GENERAL PUBLIC LICENSE v3.0](LICENSE)
+[GNU General Public License v3.0](LICENSE)
